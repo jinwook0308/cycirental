@@ -1,0 +1,14 @@
+# Local credentials and machine-specific settings
+.env
+.env.*
+!.env.example
+*.local.yml
+*.local.yaml
+
+# IDEs
+.idea/
+.vscode/
+
+# Build diagnostics and Kotlin incremental state
+mobile/android/.kotlin/
+mobile/android/hs_err_pid*.log
