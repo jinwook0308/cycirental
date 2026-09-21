@@ -8,10 +8,10 @@
 - `backend/`: Java 21 + Spring Boot 읽기 전용 물품 API (`GET /api/health`, `GET /api/items`, `GET /api/items/{id}`, `GET /api/items?query=VR`).
 - 기본 실행은 H2 인메모리 DB의 데모 데이터입니다. 앱 대여 신청 역시 메모리에만 저장됩니다. 실제 인증, 대여 트랜잭션, 푸시 알림은 아직 구현되지 않았습니다.
 
-## 설치된 개발 도구
+## 개발 도구
 
-- Android Studio, Flutter SDK, Android SDK 36, JDK 21, IntelliJ IDEA, DBeaver Community.
-- Flutter SDK는 `C:\Users\cyci1234\dev\flutter`에 있습니다. Android Studio에서 Flutter 및 Dart 플러그인이 필요할 수 있습니다.
+- 이 PC에는 Android Studio, Flutter SDK, Android SDK 36, JDK 21, IntelliJ IDEA, DBeaver Community와 Android Studio의 Flutter/Dart 플러그인이 설치되었습니다.
+- 팀원 PC에서도 동일한 도구를 설치하고 `flutter doctor`로 환경을 확인하세요.
 
 ## 실행
 
@@ -27,6 +27,8 @@ cd backend
 ```
 
 Android Studio에서는 `mobile/`, IntelliJ에서는 `backend/`를 각각 프로젝트로 엽니다. 백엔드는 `127.0.0.1:8080`에서만 수신합니다. Android 에뮬레이터에서 PC 백엔드에 접근할 때는 `10.0.2.2:8080`을 사용합니다. 현재 Flutter 앱은 아직 API와 연결되지 않았습니다.
+
+Windows에서 저장소 경로에 한글이 있으면 Android Gradle 빌드가 실패하거나 JVM이 종료될 수 있습니다. 이 PC의 OneDrive `문서` 경로에서는 테스트와 정적 분석은 통과했지만 APK 빌드가 실패했고, 영문 경로의 별도 작업 트리에서는 `flutter build apk --debug`가 성공했습니다. Android Studio 빌드에는 `C:\dev\cycirental`처럼 영문 경로의 체크아웃을 사용하세요.
 
 ## 원격 MariaDB 준비
 
