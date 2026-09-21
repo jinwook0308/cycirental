@@ -4,7 +4,7 @@
 
 ## 현재 구현 범위
 
-- `mobile/`: Flutter + Android Studio용 앱. 컨셉아트의 남색/파란색 톤과 로그인 → 홈 → 물품 목록 → 상세/신청 → 내 대여/알림 흐름을 반영했습니다.
+- `mobile/`: Flutter + Android Studio용 앱. 컨셉아트의 남색/파란색 톤과 로그인 → 홈 → 물품 목록·검색 → 상세·신청 → 내 대여·반납 → 알림 흐름을 반영했습니다. 기본 예시 대여 내역이 있어 모든 화면을 바로 시연할 수 있습니다.
 - `backend/`: Java 21 + Spring Boot 읽기 전용 물품 API (`GET /api/health`, `GET /api/items`, `GET /api/items/{id}`, `GET /api/items?query=VR`).
 - 기본 실행은 H2 인메모리 DB의 데모 데이터입니다. 앱 대여 신청 역시 메모리에만 저장됩니다. 실제 인증, 대여 트랜잭션, 푸시 알림은 아직 구현되지 않았습니다.
 
@@ -12,6 +12,7 @@
 
 - 이 PC에는 Android Studio, Flutter SDK, Android SDK 36, JDK 21, IntelliJ IDEA, DBeaver Community와 Android Studio의 Flutter/Dart 플러그인이 설치되었습니다.
 - 팀원 PC에서도 동일한 도구를 설치하고 `flutter doctor`로 환경을 확인하세요.
+- 이 PC에는 Android Studio에서 선택할 수 있는 `Medium Phone` Android 가상 기기도 생성했습니다.
 
 ## 실행
 
