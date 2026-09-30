@@ -697,3 +697,5 @@ main Merge
 
 > `main`은 항상 실행 가능한 상태를 유지하며,  
 > 검토가 끝나지 않은 기능은 직접 Merge하지 않습니다.
+
+### 9월30일 김명숙 cycirental frontend 셋업 검사 완료
