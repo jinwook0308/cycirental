@@ -12,7 +12,7 @@
 | Flutter SDK | 모바일 앱 개발 도구 | 명령어에서 사용 |
 | Android Studio | Flutter 앱 편집, Android SDK 및 에뮬레이터 실행 | `cycirental\mobile` |
 | JDK 21 | Spring Boot 백엔드 실행 | 명령어에서 사용 |
-| IntelliJ IDEA | Spring Boot 백엔드 편집 및 실행 | `cycirental\backend` |
+| IntelliJ IDEA | Spring Boot 백엔드 편집 및 실행 | `cycirental-backend` |
 | DBeaver Community | 원격 MariaDB 조회 및 관리 | 별도 DB 연결 생성 |
 
 MariaDB 서버 프로그램은 모든 팀원 PC에 설치할 필요가 없습니다. 팀 공용 원격 DB를 사용할 때는 DBeaver만 설치하면 됩니다.
@@ -105,6 +105,7 @@ PowerShell을 관리자 권한 없이 열고 다음 명령을 실행합니다.
 ```powershell
 New-Item -ItemType Directory -Force C:\dev
 git clone https://github.com/jinwook0308/cycirental.git C:\dev\cycirental
+git clone https://github.com/jinwook0308/cycirental-backend.git C:\dev\cycirental-backend
 cd C:\dev\cycirental
 git switch main
 ```
@@ -113,6 +114,8 @@ git switch main
 
 ```powershell
 cd C:\dev\cycirental
+git pull origin main
+cd C:\dev\cycirental-backend
 git pull origin main
 ```
 
@@ -164,7 +167,7 @@ flutter run
 ## 5. 백엔드를 IntelliJ IDEA에서 실행하기
 
 1. IntelliJ IDEA에서 `Open`을 누릅니다.
-2. `C:\dev\cycirental\backend` 폴더를 선택합니다.
+2. `C:\dev\cycirental-backend` 폴더를 선택합니다.
 3. 프로젝트 SDK로 JDK 21을 선택합니다.
 4. Maven 의존성 불러오기가 끝날 때까지 기다립니다.
 5. `DeptRentalApiApplication`의 실행 버튼을 누릅니다.
@@ -172,7 +175,7 @@ flutter run
 PowerShell에서 실행해도 됩니다.
 
 ```powershell
-cd C:\dev\cycirental\backend
+cd C:\dev\cycirental-backend
 .\mvnw.cmd spring-boot:run
 ```
 
@@ -209,7 +212,7 @@ DB 주소, 포트, DB 이름, 계정, 비밀번호는 GitHub나 단체 채팅에
 
 ### 백엔드를 MariaDB 프로필로 실행하기
 
-`backend/.env.example`은 필요한 변수 이름을 보여 주는 예시입니다. Spring Boot가 `.env` 파일을 자동으로 읽는 것은 아니므로, IntelliJ 실행 설정의 `Environment variables`에 입력하거나 현재 PowerShell 세션에 설정해야 합니다.
+Backend 저장소의 `.env.example`은 필요한 변수 이름을 보여 주는 예시입니다. Spring Boot가 `.env` 파일을 자동으로 읽는 것은 아니므로, IntelliJ 실행 설정의 `Environment variables`에 입력하거나 현재 PowerShell 세션에 설정해야 합니다.
 
 ```powershell
 $env:SPRING_PROFILES_ACTIVE = "mariadb"
@@ -327,7 +330,7 @@ flutter build apk --debug
 백엔드:
 
 ```powershell
-cd C:\dev\cycirental\backend
+cd C:\dev\cycirental-backend
 java -version
 .\mvnw.cmd test
 ```

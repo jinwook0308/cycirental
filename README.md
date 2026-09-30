@@ -8,6 +8,15 @@
 
 ---
 
+## 저장소 구성
+
+- Frontend(Flutter): 현재 저장소 `jinwook0308/cycirental`
+- Backend(Spring Boot): [jinwook0308/cycirental-backend](https://github.com/jinwook0308/cycirental-backend)
+
+Frontend와 Backend는 각각 별도의 저장소에서 작업하고 REST API로 연동합니다.
+
+---
+
 ## 프로젝트 개요
 
 학과에서는 노트북, 충전기, 카메라, VR 기기, 실습 장비 등 다양한 물품을 학생들에게 대여하고 있습니다.
@@ -276,14 +285,17 @@ Collaboration
 ## 1. 브랜치 구조
 
 ```text
+Frontend 저장소 (cycirental)
 main
-├─ front-dev
-│  ├─ front/auth
-│  ├─ front/home
-│  ├─ front/items
-│  ├─ front/rental
-│  └─ front/my-rental
-│
+└─ front-dev
+   ├─ front/auth
+   ├─ front/home
+   ├─ front/items
+   ├─ front/rental
+   └─ front/my-rental
+
+Backend 저장소 (cycirental-backend)
+main
 └─ back-dev
    ├─ back/auth
    ├─ back/items
@@ -295,9 +307,9 @@ main
 
 #### `main`
 
-- 최종 통합 브랜치
+- 각 저장소의 최종 통합 브랜치
 - 직접 기능 개발 금지
-- `front-dev`, `back-dev`에서 검토가 완료된 코드만 반영
+- Frontend 저장소는 `front-dev`, Backend 저장소는 `back-dev`에서 검토가 완료된 코드만 반영
 - 실제 실행 및 제출 기준이 되는 안정화 브랜치
 
 #### `front-dev`
@@ -323,8 +335,9 @@ Backend : back/기능명
 
 > **브랜치 생성 규칙**
 >
-> 모든 브랜치는 `main`을 기준으로 생성합니다.  
-> `front-dev` 또는 `back-dev` 안에서 각 부분 별 브랜치 생성  
+> Frontend 기능 브랜치는 Frontend 저장소의 `front-dev`를 기준으로 생성합니다.
+>
+> Backend 기능 브랜치는 Backend 저장소의 `back-dev`를 기준으로 생성합니다.
 
 
 ---
@@ -431,6 +444,8 @@ O fix: 이메일 중복 검사 시 잘못된 결과가 출력되는 오류 수�
 ## 4. Pull Request 규칙
 
 기능 브랜치 작업 완료 후 해당 통합 브랜치로 Pull Request를 생성합니다.
+
+Frontend PR은 `cycirental`, Backend PR은 `cycirental-backend` 저장소에서 각각 생성합니다.
 
 ```text
 front/* → front-dev

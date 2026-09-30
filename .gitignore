@@ -12,3 +12,6 @@
 # Build diagnostics and Kotlin incremental state
 mobile/android/.kotlin/
 mobile/android/hs_err_pid*.log
+
+# Backend is maintained in https://github.com/jinwook0308/cycirental-backend
+backend/
