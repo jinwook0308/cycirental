@@ -1,20 +1,31 @@
-# DeptRental 개발 시작 안내
+# CYCIRENTAL Frontend 개발 안내
 
-기존 `README.md`는 팀에서 제공한 원문을 그대로 유지합니다. 이 문서는 새 기본 뼈대의 실행 방법만 설명합니다.
+CYCIRENTAL Frontend 개발에 필요한 기본 실행 방법과 개발 시 주의사항을 정리합니다.
 
-처음 개발 환경을 설치하는 팀원은 [Windows 개발 환경 설정 및 오류 해결 가이드](SETUP_WINDOWS.md)를 먼저 따라 하세요.
+처음 개발 환경을 구성하는 팀원은
+[Windows 개발 환경 설정](SETUP_WINDOWS.md)을 먼저 확인합니다.
 
-## 현재 구현 범위
+Backend 관련 실행 및 서버 설정은
+[CYCIRENTAL Backend 저장소](https://github.com/cycirental-team/cycirental-backend)를 기준으로 합니다.
 
-- `mobile/`: Flutter + Android Studio용 앱. 컨셉아트의 남색/파란색 톤과 로그인 → 홈 → 물품 목록·검색 → 상세·신청 → 내 대여·반납 → 알림 흐름을 반영했습니다. 기본 예시 대여 내역이 있어 모든 화면을 바로 시연할 수 있습니다.
-- Backend는 별도 [cycirental-backend 저장소](https://github.com/jinwook0308/cycirental-backend)로 분리했습니다.
-- 현재 앱의 대여 신청은 메모리에만 저장됩니다. 실제 인증, 대여 트랜잭션, 푸시 알림과 Backend API 연결은 아직 구현되지 않았습니다.
+---
 
-## 개발 도구
+## 현재 Frontend 구성
 
-- 이 PC에는 Android Studio, Flutter SDK, Android SDK 36, JDK 21, IntelliJ IDEA, DBeaver Community와 Android Studio의 Flutter/Dart 플러그인이 설치되었습니다.
-- 팀원 PC에서도 동일한 도구를 설치하고 `flutter doctor`로 환경을 확인하세요.
-- 이 PC에는 Android Studio에서 선택할 수 있는 `Medium Phone` Android 가상 기기도 생성했습니다.
+Flutter 프로젝트는 저장소의 `mobile` 폴더에 있습니다.
+
+```text
+cycirental
+└─ mobile
+   ├─ android
+   ├─ lib
+   ├─ test
+   └─ pubspec.yaml
+```
+
+Android Studio에서는 저장소 루트가 아니라 `mobile` 폴더를 프로젝트로 엽니다.
+
+---
 
 ## 실행
 
@@ -24,23 +35,91 @@ flutter pub get
 flutter run
 ```
 
-Android Studio에서는 `mobile/`을 프로젝트로 엽니다. Backend 실행 방법은 [Backend 저장소 안내](https://github.com/jinwook0308/cycirental-backend#readme)를 참고하세요. Android 에뮬레이터에서 PC Backend에 접근할 때는 `10.0.2.2:8080`을 사용합니다. 현재 Flutter 앱은 아직 API와 연결되지 않았습니다.
+Android Emulator 또는 실제 Android 기기를 먼저 연결한 뒤 실행합니다.
 
-Windows에서 저장소 경로에 한글이 있으면 Android Gradle 빌드가 실패하거나 JVM이 종료될 수 있습니다. 이 PC의 OneDrive `문서` 경로에서는 테스트와 정적 분석은 통과했지만 APK 빌드가 실패했고, 영문 경로의 별도 작업 트리에서는 `flutter build apk --debug`가 성공했습니다. Android Studio 빌드에는 `C:\dev\cycirental`처럼 영문 경로의 체크아웃을 사용하세요.
+연결된 기기는 다음 명령으로 확인합니다.
 
-## 원격 MariaDB 준비
+```powershell
+flutter devices
+```
 
-팀이 알려준 주소의 TCP 3306 포트는 이 PC에서 열려 있음을 확인했습니다. 이는 **DB 로그인이나 다른 네트워크에서의 접근 성공을 의미하지 않습니다**. 비밀번호를 받지 못해 실제 계정 권한 및 DB 스키마는 확인하지 않았고, 원격 서버에는 아무 변경도 하지 않았습니다.
+---
 
-Backend 저장소의 `mariadb` 프로필은 `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` 환경변수를 사용합니다. 예시는 Backend 저장소의 `.env.example`에 있으며, 비밀번호가 들어간 실제 `.env` 파일은 Git에 올리지 않습니다. `mariadb` 프로필에서는 안전을 위해 Flyway 자동 실행과 Hibernate 자동 DDL을 꺼 두었습니다. 팀 DB의 기존 구조를 확인한 뒤 마이그레이션 적용 여부를 정해야 합니다.
+## 개발 환경 확인
 
-DBeaver 새 연결에서 `MariaDB`를 선택하고 팀의 Host, Port, Database, User를 입력합니다. 비밀번호는 팀 관리자에게 개인적으로 받아 입력하고 Git에 저장하지 않습니다. 가능하면 TLS 인증서 검증을 켜고, 공용 인터넷에 3306을 무제한 개방하지 말고 VPN이나 허용 IP 목록을 사용하세요. 여러 장소에서 접속하려면 서버 관리자에게 계정의 허용 호스트, 방화벽, 공유기/클라우드 인바운드 규칙을 함께 확인받아야 합니다.
+```powershell
+flutter doctor -v
+```
 
-## 검증
+Flutter 및 Android toolchain 관련 오류가 있는 경우
+[Windows 개발 환경 설정](SETUP_WINDOWS.md)의 오류 해결 내용을 확인합니다.
+
+---
+
+## 테스트
+
+작업 후 가능한 범위에서 다음 명령을 실행합니다.
 
 ```powershell
 cd mobile
-flutter test
 dart analyze lib
+flutter test
 flutter build apk --debug
 ```
+
+Merge 전에는 최소한 수정한 화면 또는 기능이 실제 앱에서 정상적으로 동작하는지 확인합니다.
+
+---
+
+## Backend 연동
+
+Backend는 별도 저장소에서 관리합니다.
+
+- [CYCIRENTAL Backend](https://github.com/cycirental-team/cycirental-backend)
+
+로컬 Backend 기본 주소:
+
+```text
+http://127.0.0.1:8080
+```
+
+Android Emulator에서 개발 PC의 Backend에 접근할 경우:
+
+```text
+http://10.0.2.2:8080
+```
+
+을 사용합니다.
+
+실제 서버 주소, API 목록, MariaDB 연결 및 자동 배포 방식은 Backend 저장소 문서를 기준으로 합니다.
+
+---
+
+## Git 작업
+
+Frontend 작업은 다음 흐름을 사용합니다.
+
+```text
+front/*
+   ↓
+front-dev
+   ↓
+main
+```
+
+자세한 브랜치, Commit, Pull Request 및 Code Review 규칙은
+[CONTRIBUTING.md](CONTRIBUTING.md)를 확인합니다.
+
+---
+
+## 문서 수정
+
+Frontend 구조 또는 실행 방식이 변경된 경우 관련 문서도 함께 수정합니다.
+
+- Frontend 개요 및 실행 → `README.md`
+- Frontend 개발 세부 내용 → `DEVELOPMENT.md`
+- Windows 개발 환경 → `SETUP_WINDOWS.md`
+- 공통 Git / GitHub 규칙 → `CONTRIBUTING.md`
+- 팀원 역할 → `TEAM.md`
+
+Backend, Database 및 서버 운영 내용을 Frontend 문서에 중복해서 작성하지 않습니다.
