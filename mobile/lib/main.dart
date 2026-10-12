@@ -93,7 +93,10 @@ class _DeptRentalAppState extends State<DeptRentalApp> {
       ),
     ),
     home: signedIn
-        ? AppShell(store: store)
+        ? AppShell(
+            store: store,
+            onLogout: () => setState(() => signedIn = false),
+          )
         : LoginScreen(onEnter: () => setState(() => signedIn = true)),
   );
 }
@@ -197,8 +200,8 @@ class LoginScreen extends StatelessWidget {
                         style: TextStyle(fontSize: 11, color: muted),
                       ),
                       const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      Wrap(
+                        alignment: WrapAlignment.center,
                         children: [
                           TextButton(
                             onPressed: () => _notReady(context),
@@ -266,8 +269,9 @@ class PrimaryAction extends StatelessWidget {
 }
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, required this.store});
+  const AppShell({super.key, required this.store, required this.onLogout});
   final DemoStore store;
+  final VoidCallback onLogout;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -294,7 +298,7 @@ class _AppShellState extends State<AppShell> {
     animation: widget.store,
     builder: (context, _) => Scaffold(
       appBar: AppBar(
-        title: Text(['DeptRental', '물품 목록', '내 대여 현황', '알림'][tab]),
+        title: Text(['DeptRental', '물품 목록', '내 대여 현황', '알림', '설정'][tab]),
         actions: [
           if (tab != 3)
             IconButton(
@@ -312,10 +316,12 @@ class _AppShellState extends State<AppShell> {
             openItem: openItem,
             openItems: () => setState(() => tab = 1),
             openRentals: () => setState(() => tab = 2),
+            openAlerts: () => setState(() => tab = 3),
           ),
           ItemsScreen(store: widget.store, openItem: openItem),
           RentalsScreen(store: widget.store),
           AlertsScreen(store: widget.store),
+          SettingsScreen(onLogout: widget.onLogout),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -342,6 +348,11 @@ class _AppShellState extends State<AppShell> {
             selectedIcon: Icon(Icons.notifications_rounded),
             label: '알림',
           ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings_rounded),
+            label: '설정',
+          ),
         ],
       ),
     ),
@@ -355,12 +366,14 @@ class HomeScreen extends StatelessWidget {
     required this.openItem,
     required this.openItems,
     required this.openRentals,
+    required this.openAlerts,
   });
 
   final DemoStore store;
   final ValueChanged<RentalItem> openItem;
   final VoidCallback openItems;
   final VoidCallback openRentals;
+  final VoidCallback openAlerts;
 
   @override
   Widget build(BuildContext context) {
@@ -380,9 +393,9 @@ class HomeScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(18, 20, 18, 28),
       children: [
-        const Row(
+        Row(
           children: [
-            Expanded(
+            const Expanded(
               child: Text(
                 '안녕하세요!\n좋은 하루 보내세요 :)',
                 style: TextStyle(
@@ -393,14 +406,48 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
             ),
-            CircleAvatar(
-              radius: 22,
-              backgroundColor: Color(0xFFE8EFFF),
-              child: Icon(Icons.person_outline_rounded, color: primaryBlue),
+            IconButton.filledTonal(
+              tooltip: '프로필 보기',
+              onPressed: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xFFE8EFFF),
+              ),
+              icon: const Icon(
+                Icons.person_outline_rounded,
+                color: primaryBlue,
+              ),
             ),
           ],
         ),
         const SizedBox(height: 20),
+        SectionHeading(
+          title: '공지사항',
+          action: '더보기',
+          onPressed: () => Navigator.of(context)
+              .push(MaterialPageRoute(builder: (_) => const NoticesScreen())),
+        ),
+        Card(
+          margin: EdgeInsets.zero,
+          child: ListTile(
+            dense: true,
+            leading: const Icon(
+              Icons.notifications_active_outlined,
+              color: primaryBlue,
+              size: 22,
+            ),
+            title: const Text(
+              '[중요] 학과 물품 이용 안내',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: ink, fontWeight: FontWeight.w700),
+            ),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => showNotice(context, demoNotices.first),
+          ),
+        ),
+        const SizedBox(height: 14),
         const _HomeBanner(),
         const SizedBox(height: 14),
         Row(
@@ -410,6 +457,7 @@ class HomeScreen extends StatelessWidget {
               label: '대여 가능한\n물품',
               count: '$availableCount개',
               tint: ice,
+              onTap: openItems,
             ),
             const SizedBox(width: 8),
             _StatTile(
@@ -417,6 +465,7 @@ class HomeScreen extends StatelessWidget {
               label: '내 대여\n현황',
               count: '${store.activeRentals.length}개',
               tint: const Color(0xFFEAEAFF),
+              onTap: openRentals,
             ),
             const SizedBox(width: 8),
             _StatTile(
@@ -424,9 +473,30 @@ class HomeScreen extends StatelessWidget {
               label: '읽지 않은\n알림',
               count: '$dueSoon개',
               tint: const Color(0xFFFFEEEA),
+              onTap: openAlerts,
             ),
           ],
         ),
+        const SizedBox(height: 22),
+        SectionHeading(
+          title: '내 대여 일정',
+          action: '내역 보기',
+          onPressed: openRentals,
+        ),
+        const SizedBox(height: 10),
+        if (store.activeRentals.isNotEmpty)
+          InkWell(
+            onTap: openRentals,
+            borderRadius: BorderRadius.circular(17),
+            child: _ReminderBanner(rental: store.activeRentals.first),
+          ),
+        if (store.activeRentals.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('대여 중인 물품이 없습니다.', style: TextStyle(color: muted)),
+            ),
+          ),
         const SizedBox(height: 22),
         SectionHeading(title: '추천 물품', action: '더보기', onPressed: openItems),
         const SizedBox(height: 10),
@@ -490,48 +560,6 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 22),
-        SectionHeading(
-          title: '내 대여 일정',
-          action: '내역 보기',
-          onPressed: openRentals,
-        ),
-        const SizedBox(height: 10),
-        if (store.activeRentals.isNotEmpty)
-          InkWell(
-            onTap: openRentals,
-            borderRadius: BorderRadius.circular(17),
-            child: _ReminderBanner(rental: store.activeRentals.first),
-          ),
-        const SizedBox(height: 20),
-        const SectionHeading(title: '공지사항'),
-        const SizedBox(height: 10),
-        const Card(
-          margin: EdgeInsets.zero,
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.campaign_outlined, color: ink, size: 20),
-                    SizedBox(width: 7),
-                    Text(
-                      '학과 물품 이용 안내',
-                      style: TextStyle(color: ink, fontWeight: FontWeight.w800),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 9),
-                Text('· 대여 물품 이용 수칙을 확인해 주세요.', style: TextStyle(fontSize: 12)),
-                Text(
-                  '· 현재 물품과 알림은 시연용 예시 데이터입니다.',
-                  style: TextStyle(fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -618,46 +646,52 @@ class _StatTile extends StatelessWidget {
     required this.label,
     required this.count,
     required this.tint,
+    required this.onTap,
   });
   final IconData icon;
   final String label;
   final String count;
   final Color tint;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) => Expanded(
-    child: Container(
-      height: 112,
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
-      decoration: BoxDecoration(
-        color: tint,
+    child: Material(
+      color: tint,
+      borderRadius: BorderRadius.circular(13),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(13),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: ink, size: 22),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: ink,
-              fontSize: 11,
-              height: 1.15,
-              fontWeight: FontWeight.w600,
-            ),
+        child: Container(
+          height: 112,
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: ink, size: 22),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: ink,
+                  fontSize: 11,
+                  height: 1.15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                count,
+                style: const TextStyle(
+                  color: primaryBlue,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            count,
-            style: const TextStyle(
-              color: primaryBlue,
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
+        ),
       ),
     ),
   );
@@ -1418,6 +1452,167 @@ class _AlertRow extends StatelessWidget {
         const SizedBox(width: 6),
         Text(time, style: const TextStyle(color: muted, fontSize: 10)),
       ],
+    ),
+  );
+}
+
+class ProfileScreen extends StatelessWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('내 프로필')),
+    body: ListView(
+      padding: const EdgeInsets.all(18),
+      children: const [
+        CircleAvatar(
+          radius: 36,
+          backgroundColor: Color(0xFFE8EFFF),
+          child: Icon(
+            Icons.person_outline_rounded,
+            size: 40,
+            color: primaryBlue,
+          ),
+        ),
+        SizedBox(height: 20),
+        Card(
+          child: Column(
+            children: [
+              ListTile(title: Text('이름'), subtitle: Text('데모 학생')),
+              ListTile(
+                title: Text('학번 / 아이디'),
+                subtitle: Text('20260001 / demo_student'),
+              ),
+              ListTile(title: Text('학과'), subtitle: Text('컴퓨터공학과 (데모)')),
+            ],
+          ),
+        ),
+        SizedBox(height: 12),
+        Text(
+          '실제 계정과 연결되지 않은 데모 프로필입니다.',
+          style: TextStyle(color: muted, fontSize: 12),
+        ),
+      ],
+    ),
+  );
+}
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key, required this.onLogout});
+  final VoidCallback onLogout;
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  bool notificationsEnabled = true;
+
+  @override
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.all(18),
+    children: [
+      Card(
+        child: Column(
+          children: [
+            SwitchListTile(
+              title: const Text('알림 설정'),
+              subtitle: const Text('대여 및 반납 알림 (데모 설정)'),
+              value: notificationsEnabled,
+              onChanged: (value) =>
+                  setState(() => notificationsEnabled = value),
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.info_outline_rounded,
+                color: primaryBlue,
+              ),
+              title: const Text('앱 정보'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => showDialog<void>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('CYCIRENTAL'),
+                  content: const Text(
+                    '버전 1.0.0\n학과 대여 물품 관리 앱\n현재 메모리 기반 데모로 동작합니다.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('확인'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout_rounded, color: danger),
+              title: const Text('로그아웃', style: TextStyle(color: danger)),
+              onTap: widget.onLogout,
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 12),
+      const Text(
+        '알림 설정은 화면 데모이며 실제 푸시는 발송되지 않습니다. 설정은 로그아웃하거나 앱을 다시 실행하면 초기화됩니다.',
+        style: TextStyle(color: muted, fontSize: 12),
+      ),
+    ],
+  );
+}
+
+class DemoNotice {
+  const DemoNotice(this.title, this.body);
+  final String title;
+  final String body;
+}
+
+const demoNotices = [
+  DemoNotice(
+    '[중요] 학과 물품 이용 안내',
+    '대여 물품 이용 수칙을 확인해 주세요.\n대여 및 반납은 학과 사무실 운영 시간에 진행해 주세요.\n\n현재 물품과 알림은 시연용 예시 데이터입니다.',
+  ),
+  DemoNotice(
+    '반납 일정 확인 안내',
+    '내 대여 화면에서 반납 예정일을 확인해 주세요.\n일정 변경이 필요한 경우 학과 사무실로 문의해 주세요.\n\n시연용 공지입니다.',
+  ),
+];
+
+void showNotice(BuildContext context, DemoNotice notice) {
+  showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(notice.title),
+      content: SingleChildScrollView(child: Text(notice.body)),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('닫기'),
+        ),
+      ],
+    ),
+  );
+}
+
+class NoticesScreen extends StatelessWidget {
+  const NoticesScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('공지사항')),
+    body: ListView.separated(
+      padding: const EdgeInsets.all(18),
+      itemCount: demoNotices.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      itemBuilder: (context, index) => Card(
+        margin: EdgeInsets.zero,
+        child: ListTile(
+          title: Text(demoNotices[index].title),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => showNotice(context, demoNotices[index]),
+        ),
+      ),
     ),
   );
 }

@@ -8,7 +8,7 @@ void main() {
     expect(find.text('로그인 · 데모 체험'), findsOneWidget);
     await tester.tap(find.text('로그인 · 데모 체험'));
     await tester.pumpAndSettle();
-    expect(find.text('추천 물품'), findsOneWidget);
+    expect(find.byType(HomeScreen), findsOneWidget);
     await tester.tap(find.text('물품'));
     await tester.pumpAndSettle();
     expect(find.text('물품 목록'), findsOneWidget);
