@@ -159,6 +159,16 @@ http://10.0.2.2:8080
 Android Emulator에서 `127.0.0.1` 또는 `localhost`는
 개발 PC가 아닌 Emulator 자신을 가리킵니다.
 
+앱은 기본적으로 `http://10.0.2.2:8080/api/items`에서 물품을 가져옵니다.
+다른 서버를 사용하려면 실행할 때 Backend 기본 주소를 전달합니다.
+
+```powershell
+flutter run --dart-define=API_BASE_URL=http://서버주소:포트
+```
+
+현재 실제 API 연동 범위는 물품 목록, 검색에 사용하는 물품 정보, 상세 정보와
+수량 표시입니다. 대여 신청과 반납 처리는 Backend API 구현 전까지 앱 내부의 임시 상태로 동작합니다.
+
 실제 서버 및 Backend 실행 방법은 Backend 저장소의 README를 기준으로 합니다.
 
 ---
