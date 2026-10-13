@@ -91,6 +91,19 @@ http://10.0.2.2:8080
 
 을 사용합니다.
 
+현재 앱은 별도 설정이 없으면 위 주소의 `/api/items`를 호출합니다.
+Backend 주소를 변경할 때는 `API_BASE_URL`을 빌드 시 전달합니다.
+
+```powershell
+flutter run --dart-define=API_BASE_URL=http://서버주소:포트
+```
+
+실제 Android 기기에서는 `10.0.2.2`를 사용할 수 없습니다. 개발 PC와 같은 네트워크에
+연결한 뒤 개발 PC의 LAN 주소를 사용하거나, 배포된 Backend 주소를 지정합니다.
+
+물품 조회 실패 시 앱에는 재시도 화면이 표시됩니다. Backend의 `/api/health`와
+`/api/items`가 정상 응답하는지 먼저 확인합니다.
+
 실제 서버 주소, API 목록, MariaDB 연결 및 자동 배포 방식은 Backend 저장소 문서를 기준으로 합니다.
 
 ---

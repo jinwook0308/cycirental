@@ -2,13 +2,17 @@ import 'package:dept_rental/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'test_items.dart';
+
 void main() {
   testWidgets('홈 바로가기와 프로필, 공지, 설정 및 로그아웃', (tester) async {
     tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const DeptRentalApp());
+    final store = testItemStore();
+    addTearDown(store.dispose);
+    await tester.pumpWidget(DeptRentalApp(store: store));
     await tester.tap(find.text('로그인 · 데모 체험'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
