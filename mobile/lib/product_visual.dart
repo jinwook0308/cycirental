@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'demo_data.dart';
+import 'item_model.dart';
 
 class ProductVisual extends StatelessWidget {
   const ProductVisual({
@@ -53,6 +53,10 @@ class _ProductPainter extends CustomPainter {
     switch (kind) {
       case ProductKind.vr:
         _vr(canvas);
+      case ProductKind.desktop:
+        _desktop(canvas);
+      case ProductKind.monitor:
+        _monitor(canvas);
       case ProductKind.projector:
         _projector(canvas);
       case ProductKind.camera:
@@ -65,6 +69,78 @@ class _ProductPainter extends CustomPainter {
         _laptop(canvas);
     }
     canvas.restore();
+  }
+
+  void _desktop(Canvas c) {
+    final caseRect = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(63, 25, 75, 103),
+      const Radius.circular(8),
+    );
+    c.drawRRect(caseRect, Paint()..color = deep);
+    c.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(71, 34, 59, 73),
+        const Radius.circular(5),
+      ),
+      Paint()..color = const Color(0xFF394A63),
+    );
+    c.drawCircle(
+      const Offset(101, 71),
+      25,
+      Paint()
+        ..color = const Color(0xFF202938)
+        ..style = PaintingStyle.fill,
+    );
+    c.drawCircle(
+      const Offset(101, 71),
+      18,
+      Paint()
+        ..color = const Color(0xFF5E82D9)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4,
+    );
+    c.drawCircle(
+      const Offset(125, 117),
+      3,
+      Paint()..color = const Color(0xFF7EE6A1),
+    );
+    final label = TextPainter(
+      text: const TextSpan(
+        text: '4090',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    label.paint(c, const Offset(86, 91));
+  }
+
+  void _monitor(Canvas c) {
+    c.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(33, 28, 134, 82),
+        const Radius.circular(8),
+      ),
+      Paint()..color = deep,
+    );
+    c.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(41, 36, 118, 65),
+        const Radius.circular(4),
+      ),
+      Paint()..color = const Color(0xFF88A8EA),
+    );
+    c.drawRect(const Rect.fromLTWH(94, 110, 12, 14), Paint()..color = dark);
+    c.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(73, 123, 54, 7),
+        const Radius.circular(4),
+      ),
+      Paint()..color = dark,
+    );
   }
 
   void _vr(Canvas c) {

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-import 'demo_data.dart';
+import 'item_model.dart';
+import 'item_store.dart';
 import 'product_visual.dart';
 
 void main() => runApp(const DeptRentalApp());
@@ -17,19 +20,30 @@ const blush = Color(0xFFFFEBEE);
 const danger = Color(0xFFE34D5D);
 
 class DeptRentalApp extends StatefulWidget {
-  const DeptRentalApp({super.key});
+  const DeptRentalApp({super.key, this.store});
+
+  final ItemStore? store;
 
   @override
   State<DeptRentalApp> createState() => _DeptRentalAppState();
 }
 
 class _DeptRentalAppState extends State<DeptRentalApp> {
-  final DemoStore store = DemoStore();
+  late final ItemStore store;
+  late final bool ownsStore;
   bool signedIn = false;
 
   @override
+  void initState() {
+    super.initState();
+    ownsStore = widget.store == null;
+    store = widget.store ?? ItemStore();
+    if (ownsStore) unawaited(store.loadItems());
+  }
+
+  @override
   void dispose() {
-    store.dispose();
+    if (ownsStore) store.dispose();
     super.dispose();
   }
 
@@ -270,7 +284,7 @@ class PrimaryAction extends StatelessWidget {
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key, required this.store, required this.onLogout});
-  final DemoStore store;
+  final ItemStore store;
   final VoidCallback onLogout;
 
   @override
@@ -289,7 +303,7 @@ class _AppShellState extends State<AppShell> {
     if (!mounted || booked != true) return;
     setState(() => tab = 2);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('데모 대여 신청이 완료됐습니다. 내 대여 현황을 확인해 보세요.')),
+      const SnackBar(content: Text('임시 대여 신청이 완료됐습니다. 내 대여 현황을 확인해 보세요.')),
     );
   }
 
@@ -359,6 +373,53 @@ class _AppShellState extends State<AppShell> {
   );
 }
 
+class _ItemsLoadingView extends StatelessWidget {
+  const _ItemsLoadingView();
+
+  @override
+  Widget build(BuildContext context) => const Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CircularProgressIndicator(),
+        SizedBox(height: 14),
+        Text('물품 정보를 불러오는 중입니다.', style: TextStyle(color: muted)),
+      ],
+    ),
+  );
+}
+
+class _ItemsErrorView extends StatelessWidget {
+  const _ItemsErrorView({required this.store});
+
+  final ItemStore store;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.cloud_off_rounded, color: danger, size: 42),
+          const SizedBox(height: 12),
+          Text(
+            store.errorMessage ?? '물품 정보를 불러올 수 없습니다.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: ink, height: 1.5),
+          ),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: store.loadItems,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('다시 시도'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
     super.key,
@@ -369,7 +430,7 @@ class HomeScreen extends StatelessWidget {
     required this.openAlerts,
   });
 
-  final DemoStore store;
+  final ItemStore store;
   final ValueChanged<RentalItem> openItem;
   final VoidCallback openItems;
   final VoidCallback openRentals;
@@ -377,7 +438,14 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final availableCount = rentalItems.fold<int>(
+    if (store.isLoading && store.items.isEmpty) {
+      return const _ItemsLoadingView();
+    }
+    if (store.errorMessage != null && store.items.isEmpty) {
+      return _ItemsErrorView(store: store);
+    }
+
+    final availableCount = store.items.fold<int>(
       0,
       (sum, item) => sum + store.available(item),
     );
@@ -504,10 +572,10 @@ class HomeScreen extends StatelessWidget {
           height: 191,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            itemCount: 3,
+            itemCount: store.items.take(3).length,
             separatorBuilder: (_, _) => const SizedBox(width: 9),
             itemBuilder: (context, index) {
-              final item = rentalItems[index];
+              final item = store.items[index];
               return SizedBox(
                 width: 143,
                 child: Card(
@@ -734,7 +802,7 @@ class SectionHeading extends StatelessWidget {
 
 class ItemsScreen extends StatefulWidget {
   const ItemsScreen({super.key, required this.store, required this.openItem});
-  final DemoStore store;
+  final ItemStore store;
   final ValueChanged<RentalItem> openItem;
 
   @override
@@ -742,17 +810,21 @@ class ItemsScreen extends StatefulWidget {
 }
 
 class _ItemsScreenState extends State<ItemsScreen> {
-  static const categories = ['전체', '전자기기', '촬영/영상', '실험/기타'];
   String query = '';
   String category = '전체';
   bool onlyAvailable = false;
 
   @override
   Widget build(BuildContext context) {
-    final visible = rentalItems.where((item) {
+    final categories = [
+      '전체',
+      ...widget.store.items.map((item) => item.category).toSet(),
+    ];
+    final visible = widget.store.items.where((item) {
       final matchesText =
           item.name.toLowerCase().contains(query.toLowerCase()) ||
-          item.subtitle.toLowerCase().contains(query.toLowerCase());
+          item.subtitle.toLowerCase().contains(query.toLowerCase()) ||
+          item.category.toLowerCase().contains(query.toLowerCase());
       return matchesText &&
           (category == '전체' || item.category == category) &&
           (!onlyAvailable || widget.store.available(item) > 0);
@@ -818,7 +890,11 @@ class _ItemsScreenState extends State<ItemsScreen> {
           ),
         ),
         Expanded(
-          child: visible.isEmpty
+          child: widget.store.isLoading && widget.store.items.isEmpty
+              ? const _ItemsLoadingView()
+              : widget.store.errorMessage != null && widget.store.items.isEmpty
+              ? _ItemsErrorView(store: widget.store)
+              : visible.isEmpty
               ? const Center(
                   child: Text('검색 결과가 없습니다.', style: TextStyle(color: muted)),
                 )
@@ -916,7 +992,7 @@ class AvailabilityPill extends StatelessWidget {
 class DetailScreen extends StatefulWidget {
   const DetailScreen({super.key, required this.item, required this.store});
   final RentalItem item;
-  final DemoStore store;
+  final ItemStore store;
 
   @override
   State<DetailScreen> createState() => _DetailScreenState();
@@ -1074,7 +1150,7 @@ class _DetailScreenState extends State<DetailScreen> {
               ),
               const SizedBox(height: 5),
               const Text(
-                '데모 신청은 이 기기에만 임시로 표시되며 실제 DB에는 저장되지 않습니다.',
+                '물품 정보는 실제 DB에서 가져오지만, 대여 신청은 아직 이 기기에만 임시로 표시됩니다.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: muted, fontSize: 10),
               ),
@@ -1122,7 +1198,7 @@ class InfoLine extends StatelessWidget {
 
 class RentalsScreen extends StatelessWidget {
   const RentalsScreen({super.key, required this.store});
-  final DemoStore store;
+  final ItemStore store;
 
   @override
   Widget build(BuildContext context) => DefaultTabController(
@@ -1238,7 +1314,7 @@ class _EmptyPanel extends StatelessWidget {
 
 class _RentalCard extends StatelessWidget {
   const _RentalCard({required this.rental, this.onReturn});
-  final DemoRental rental;
+  final RentalRecord rental;
   final VoidCallback? onReturn;
 
   @override
@@ -1268,11 +1344,6 @@ class _RentalCard extends StatelessWidget {
                           fontSize: 15,
                         ),
                       ),
-                      if (rental.isSample)
-                        const Text(
-                          '예시 대여 내역',
-                          style: TextStyle(color: muted, fontSize: 10),
-                        ),
                       const SizedBox(height: 3),
                       Text(
                         '대여일    ${dateText(rental.start)}',
@@ -1331,7 +1402,7 @@ class _RentalCard extends StatelessWidget {
 
 class _ReminderBanner extends StatelessWidget {
   const _ReminderBanner({required this.rental});
-  final DemoRental rental;
+  final RentalRecord rental;
 
   @override
   Widget build(BuildContext context) {
@@ -1371,7 +1442,7 @@ class _ReminderBanner extends StatelessWidget {
 
 class AlertsScreen extends StatelessWidget {
   const AlertsScreen({super.key, required this.store});
-  final DemoStore store;
+  final ItemStore store;
 
   @override
   Widget build(BuildContext context) {
@@ -1406,7 +1477,7 @@ class AlertsScreen extends StatelessWidget {
     );
   }
 
-  String _alertText(DemoRental rental, DateTime today) {
+  String _alertText(RentalRecord rental, DateTime today) {
     final remaining = rental.due.difference(today).inDays;
     if (remaining < 0) return '${rental.item.name}의 반납 예정일이 지났습니다.';
     if (remaining == 0) return '${rental.item.name}의 반납 예정일이 오늘입니다.';
@@ -1534,7 +1605,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 builder: (context) => AlertDialog(
                   title: const Text('CYCIRENTAL'),
                   content: const Text(
-                    '버전 1.0.0\n학과 대여 물품 관리 앱\n현재 메모리 기반 데모로 동작합니다.',
+                    '버전 1.0.0\n학과 대여 물품 관리 앱\n'
+                    '물품 정보는 Backend API에서 불러오며, 대여·반납은 임시 기능입니다.',
                   ),
                   actions: [
                     TextButton(
