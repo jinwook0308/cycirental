@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'item_model.dart';
+import 'demo_auth.dart';
+import 'admin_screen.dart';
 import 'item_store.dart';
 import 'product_visual.dart';
 
@@ -28,23 +30,38 @@ class DeptRentalApp extends StatefulWidget {
   State<DeptRentalApp> createState() => _DeptRentalAppState();
 }
 
-class _DeptRentalAppState extends State<DeptRentalApp> {
+class _DeptRentalAppState extends State<DeptRentalApp>
+    with WidgetsBindingObserver {
   late final ItemStore store;
   late final bool ownsStore;
   bool signedIn = false;
+  AppUser? user;
+  Timer? _expiryTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     ownsStore = widget.store == null;
     store = widget.store ?? ItemStore();
+    _expiryTimer = Timer.periodic(
+      const Duration(minutes: 1),
+      (_) => store.refreshExpiredRequests(),
+    );
     if (ownsStore) unawaited(store.loadItems());
   }
 
   @override
   void dispose() {
+    _expiryTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     if (ownsStore) store.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) store.refreshExpiredRequests();
   }
 
   @override
@@ -109,15 +126,53 @@ class _DeptRentalAppState extends State<DeptRentalApp> {
     home: signedIn
         ? AppShell(
             store: store,
-            onLogout: () => setState(() => signedIn = false),
+            user: user!,
+            onLogout: () => setState(() {
+              signedIn = false;
+              user = null;
+              store.currentUserId = AppUser.student.id;
+            }),
           )
-        : LoginScreen(onEnter: () => setState(() => signedIn = true)),
+        : LoginScreen(
+            onEnter: (account) => setState(() {
+              user = account;
+              store.currentUserId = account.id;
+              store.refreshExpiredRequests();
+              signedIn = true;
+            }),
+          ),
   );
 }
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, required this.onEnter});
-  final VoidCallback onEnter;
+  final ValueChanged<AppUser> onEnter;
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final id = TextEditingController();
+  final password = TextEditingController();
+  String? error;
+
+  @override
+  void dispose() {
+    id.dispose();
+    password.dispose();
+    super.dispose();
+  }
+
+  void signIn() {
+    final account = demoSignIn(id.text, password.text);
+    if (account == null) {
+      setState(() => error = '아이디와 비밀번호를 확인해 주세요.');
+      return;
+    }
+    setState(() => error = null);
+    widget.onEnter(account);
+  }
 
   void _notReady(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -185,8 +240,10 @@ class LoginScreen extends StatelessWidget {
                         style: TextStyle(color: muted, fontSize: 14),
                       ),
                       const SizedBox(height: 35),
-                      const TextField(
-                        decoration: InputDecoration(
+                      TextField(
+                        key: const Key('login-id'),
+                        controller: id,
+                        decoration: const InputDecoration(
                           hintText: '학번 / 아이디',
                           prefixIcon: Icon(
                             Icons.person_outline_rounded,
@@ -195,9 +252,12 @@ class LoginScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      const TextField(
+                      TextField(
+                        key: const Key('login-password'),
+                        controller: password,
                         obscureText: true,
-                        decoration: InputDecoration(
+                        onSubmitted: (_) => signIn(),
+                        decoration: const InputDecoration(
                           hintText: '비밀번호',
                           prefixIcon: Icon(
                             Icons.lock_outline_rounded,
@@ -206,10 +266,23 @@ class LoginScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 18),
-                      PrimaryAction(label: '로그인 · 데모 체험', onPressed: onEnter),
+                      PrimaryAction(label: '로그인', onPressed: signIn),
+                      if (error != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            error!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: danger),
+                          ),
+                        ),
+                      TextButton(
+                        onPressed: () => widget.onEnter(AppUser.student),
+                        child: const Text('로그인 · 데모 체험'),
+                      ),
                       const SizedBox(height: 11),
                       const Text(
-                        '입력한 계정 정보는 사용하지 않는 화면 데모입니다.',
+                        '데모 계정\n학생: student / student1234\n관리자: admin / admin1234\n실제 서버 인증은 아직 연결되지 않았습니다.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 11, color: muted),
                       ),
@@ -283,7 +356,13 @@ class PrimaryAction extends StatelessWidget {
 }
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, required this.store, required this.onLogout});
+  const AppShell({
+    super.key,
+    required this.store,
+    required this.user,
+    required this.onLogout,
+  });
+  final AppUser user;
   final ItemStore store;
   final VoidCallback onLogout;
 
@@ -303,7 +382,7 @@ class _AppShellState extends State<AppShell> {
     if (!mounted || booked != true) return;
     setState(() => tab = 2);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('임시 대여 신청이 완료됐습니다. 내 대여 현황을 확인해 보세요.')),
+      const SnackBar(content: Text('신청이 접수됐습니다. 관리자 승인 후 이용할 수 있습니다.')),
     );
   }
 
@@ -331,11 +410,16 @@ class _AppShellState extends State<AppShell> {
             openItems: () => setState(() => tab = 1),
             openRentals: () => setState(() => tab = 2),
             openAlerts: () => setState(() => tab = 3),
+            user: widget.user,
           ),
           ItemsScreen(store: widget.store, openItem: openItem),
           RentalsScreen(store: widget.store),
           AlertsScreen(store: widget.store),
-          SettingsScreen(onLogout: widget.onLogout),
+          SettingsScreen(
+            store: widget.store,
+            user: widget.user,
+            onLogout: widget.onLogout,
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -423,6 +507,7 @@ class _ItemsErrorView extends StatelessWidget {
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
     super.key,
+    this.user = AppUser.student,
     required this.store,
     required this.openItem,
     required this.openItems,
@@ -430,6 +515,7 @@ class HomeScreen extends StatelessWidget {
     required this.openAlerts,
   });
 
+  final AppUser user;
   final ItemStore store;
   final ValueChanged<RentalItem> openItem;
   final VoidCallback openItems;
@@ -476,9 +562,9 @@ class HomeScreen extends StatelessWidget {
             ),
             IconButton.filledTonal(
               tooltip: '프로필 보기',
-              onPressed: () => Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => ProfileScreen(user: user)),
+              ),
               style: IconButton.styleFrom(
                 backgroundColor: const Color(0xFFE8EFFF),
               ),
@@ -1003,11 +1089,16 @@ class _DetailScreenState extends State<DetailScreen> {
 
   Future<void> _chooseDue() async {
     final today = dateOnly(DateTime.now());
+    final first = today.add(const Duration(days: 1));
+    final last = latestReturnDate(today);
+    final initial = due.isBefore(first)
+        ? first
+        : (due.isAfter(last) ? last : due);
     final selected = await showDatePicker(
       context: context,
-      initialDate: due,
-      firstDate: today.add(const Duration(days: 1)),
-      lastDate: today.add(const Duration(days: 90)),
+      initialDate: initial,
+      firstDate: first,
+      lastDate: last,
     );
     if (selected != null && mounted) setState(() => due = selected);
   }
@@ -1089,7 +1180,7 @@ class _DetailScreenState extends State<DetailScreen> {
                 children: [
                   InfoLine(
                     icon: Icons.calendar_today_outlined,
-                    title: '대여일',
+                    title: '신청일',
                     value: dateText(DateTime.now()),
                   ),
                   const Divider(height: 21, color: line),
@@ -1101,7 +1192,7 @@ class _DetailScreenState extends State<DetailScreen> {
                         const SizedBox(width: 10),
                         const Expanded(
                           child: Text(
-                            '반납 예정일',
+                            '반납 예정일 (최대 14일)',
                             style: TextStyle(color: muted, fontSize: 12),
                           ),
                         ),
@@ -1142,8 +1233,16 @@ class _DetailScreenState extends State<DetailScreen> {
                 label: count > 0 ? '대여 신청' : '현재 대여 불가',
                 onPressed: count > 0
                     ? () {
-                        if (widget.store.rent(widget.item, due)) {
+                        if (widget.store.requestRental(widget.item, due)) {
                           Navigator.pop(context, true);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                '재고·반납일·중복 신청을 확인해 주세요. 최대 대여 기간은 14일입니다.',
+                              ),
+                            ),
+                          );
                         }
                       }
                     : null,
@@ -1202,7 +1301,7 @@ class RentalsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DefaultTabController(
-    length: 2,
+    length: 3,
     child: Column(
       children: [
         Material(
@@ -1213,6 +1312,7 @@ class RentalsScreen extends StatelessWidget {
             indicatorColor: primaryBlue,
             indicatorSize: TabBarIndicatorSize.tab,
             tabs: [
+              Tab(text: '신청 내역 (${store.myUnapprovedRequests.length})'),
               Tab(text: '대여 중 (${store.activeRentals.length})'),
               Tab(text: '대여 내역 (${store.history.length})'),
             ],
@@ -1221,6 +1321,40 @@ class RentalsScreen extends StatelessWidget {
         Expanded(
           child: TabBarView(
             children: [
+              store.myUnapprovedRequests.isEmpty
+                  ? const _EmptyPanel(message: '신청 내역이 없습니다.')
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(17),
+                      itemCount: store.myUnapprovedRequests.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 9),
+                      itemBuilder: (context, index) => _RequestCard(
+                        request: store.myUnapprovedRequests[index],
+                        onCancel: () async {
+                          final request = store.myUnapprovedRequests[index];
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('신청 취소'),
+                              content: Text(
+                                '${request.item.name} 신청을 취소하시겠어요?',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(context, false),
+                                  child: const Text('닫기'),
+                                ),
+                                FilledButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  child: const Text('신청 취소'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirmed == true) store.cancelRequest(request);
+                        },
+                      ),
+                    ),
               store.activeRentals.isEmpty
                   ? const _EmptyPanel(
                       message: '대여 중인 물품이 없습니다.\n물품 목록에서 신청해 보세요.',
@@ -1247,9 +1381,9 @@ class RentalsScreen extends StatelessWidget {
                             final confirm = await showDialog<bool>(
                               context: context,
                               builder: (context) => AlertDialog(
-                                title: const Text('데모 반납 처리'),
+                                title: const Text('반납 요청'),
                                 content: Text(
-                                  '${rental.item.name}을 반납 완료로 표시할까요? 실제 서버에는 반영되지 않습니다.',
+                                  '${rental.item.name}의 반납을 요청하시겠어요? 관리자 확인 후 반납이 완료됩니다.',
                                 ),
                                 actions: [
                                   TextButton(
@@ -1260,12 +1394,12 @@ class RentalsScreen extends StatelessWidget {
                                   TextButton(
                                     onPressed: () =>
                                         Navigator.pop(context, true),
-                                    child: const Text('반납 완료'),
+                                    child: const Text('반납 요청'),
                                   ),
                                 ],
                               ),
                             );
-                            if (confirm == true) store.returnItem(rental);
+                            if (confirm == true) store.requestReturn(rental);
                           },
                         );
                       },
@@ -1285,6 +1419,78 @@ class RentalsScreen extends StatelessWidget {
       ],
     ),
   );
+}
+
+class _RequestCard extends StatelessWidget {
+  const _RequestCard({required this.request, this.onCancel});
+  final DemoRequest request;
+  final VoidCallback? onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final pending = request.status == RequestStatus.pending;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    request.item.name,
+                    style: const TextStyle(
+                      color: ink,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Chip(
+                  label: Text(requestStatusLabel(request.status)),
+                  backgroundColor: pending ? const Color(0xFFE7EDFF) : blush,
+                ),
+              ],
+            ),
+            Text(
+              '신청일  ${dateText(request.requestedAt)}',
+              style: const TextStyle(color: muted, fontSize: 12),
+            ),
+            Text(
+              '반납 예정일  ${dateText(request.due)}',
+              style: const TextStyle(color: muted, fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              switch (request.status) {
+                RequestStatus.pending => '관리자 승인 후 이용할 수 있습니다.',
+                RequestStatus.rejected =>
+                  '거절 사유: ${request.rejectionReason ?? "사유 없음"}',
+                RequestStatus.cancelled => '신청을 취소했습니다.',
+                RequestStatus.expired =>
+                  '반납 예정일에 도달해 승인 가능 기간이 지났습니다. 다시 신청해 주세요.',
+                RequestStatus.approved => '승인되었습니다.',
+              },
+              style: TextStyle(
+                color: pending ? primaryBlue : danger,
+                fontSize: 12,
+              ),
+            ),
+            if (pending && onCancel != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: onCancel,
+                  child: const Text('신청 취소'),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _EmptyPanel extends StatelessWidget {
@@ -1368,7 +1574,9 @@ class _RentalCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    rental.isActive ? '대여 중' : '반납 완료',
+                    rental.isActive
+                        ? (rental.isReturnPending ? '반납 확인 대기' : '대여 중')
+                        : '반납 완료',
                     style: TextStyle(
                       color: rental.isActive ? primaryBlue : muted,
                       fontWeight: FontWeight.w800,
@@ -1387,9 +1595,11 @@ class _RentalCard extends StatelessWidget {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton.icon(
-                  onPressed: onReturn,
+                  onPressed: rental.isReturnPending ? null : onReturn,
                   icon: const Icon(Icons.check_circle_outline, size: 17),
-                  label: const Text('반납 완료로 표시'),
+                  label: Text(
+                    rental.isReturnPending ? '관리자 반납 확인 대기' : '반납 요청',
+                  ),
                 ),
               ),
             ],
@@ -1462,12 +1672,25 @@ class AlertsScreen extends StatelessWidget {
               time: dateText(rental.due),
             ),
           ),
-        const _AlertRow(
-          urgent: false,
-          icon: Icons.check_circle_outline,
-          message: '대여 신청이 승인되었습니다. (예시 알림)',
-          time: '데모',
-        ),
+        for (final request in store.myRequests)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 9),
+            child: _AlertRow(
+              urgent: false,
+              icon: request.status == RequestStatus.approved
+                  ? Icons.check_circle_outline
+                  : Icons.info_outline,
+              message:
+                  '${request.item.name}: ${switch (request.status) {
+                    RequestStatus.pending => '관리자 승인 대기 중입니다.',
+                    RequestStatus.approved => '대여 신청이 승인되었습니다.',
+                    RequestStatus.rejected => '신청 거절: ${request.rejectionReason ?? "사유 없음"}',
+                    RequestStatus.cancelled => '대여 신청을 취소했습니다.',
+                    RequestStatus.expired => '대여 신청이 만료되었습니다.',
+                  }}',
+              time: dateText(request.requestedAt),
+            ),
+          ),
         const SizedBox(height: 18),
         const Text(
           '푸시 알림은 아직 발송되지 않습니다. 이 화면은 시연용입니다.',
@@ -1528,14 +1751,15 @@ class _AlertRow extends StatelessWidget {
 }
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({super.key, this.user = AppUser.student});
+  final AppUser user;
 
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('내 프로필')),
     body: ListView(
       padding: const EdgeInsets.all(18),
-      children: const [
+      children: [
         CircleAvatar(
           radius: 36,
           backgroundColor: Color(0xFFE8EFFF),
@@ -1549,12 +1773,12 @@ class ProfileScreen extends StatelessWidget {
         Card(
           child: Column(
             children: [
-              ListTile(title: Text('이름'), subtitle: Text('데모 학생')),
+              ListTile(title: const Text('이름'), subtitle: Text(user.name)),
+              ListTile(title: Text('학번 / 아이디'), subtitle: Text(user.id)),
               ListTile(
-                title: Text('학번 / 아이디'),
-                subtitle: Text('20260001 / demo_student'),
+                title: const Text('계정 유형'),
+                subtitle: Text(user.isAdmin ? '관리자' : '학생'),
               ),
-              ListTile(title: Text('학과'), subtitle: Text('컴퓨터공학과 (데모)')),
             ],
           ),
         ),
@@ -1569,7 +1793,14 @@ class ProfileScreen extends StatelessWidget {
 }
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key, required this.onLogout});
+  const SettingsScreen({
+    super.key,
+    required this.store,
+    required this.user,
+    required this.onLogout,
+  });
+  final ItemStore store;
+  final AppUser user;
   final VoidCallback onLogout;
 
   @override
@@ -1617,6 +1848,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ),
+            if (widget.user.isAdmin)
+              ListTile(
+                leading: const Icon(
+                  Icons.admin_panel_settings_outlined,
+                  color: primaryBlue,
+                ),
+                title: const Text('관리자'),
+                subtitle: const Text('물품 · 대여 승인 · 반납 관리'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () {
+                  if (!widget.user.isAdmin) return;
+                  widget.store.refreshExpiredRequests();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          AdminScreen(store: widget.store, user: widget.user),
+                    ),
+                  );
+                },
+              ),
             ListTile(
               leading: const Icon(Icons.logout_rounded, color: danger),
               title: const Text('로그아웃', style: TextStyle(color: danger)),
