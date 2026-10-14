@@ -40,6 +40,8 @@ void main() {
     await tester.tap(find.text('대여 신청'));
     await tester.pumpAndSettle();
     expect(find.text('내 대여 현황'), findsOneWidget);
-    expect(find.text('임시 대여 신청이 완료됐습니다. 내 대여 현황을 확인해 보세요.'), findsOneWidget);
+    expect(find.text('승인 대기'), findsOneWidget);
+    expect(store.activeRentals, isEmpty);
+    expect(find.text('신청이 접수됐습니다. 관리자 승인 후 이용할 수 있습니다.'), findsOneWidget);
   });
 }
