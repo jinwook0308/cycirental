@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import 'item_api.dart';
 import 'item_model.dart';
+import 'notice_store.dart';
 
 enum RequestStatus { pending, approved, rejected, cancelled, expired }
 
@@ -81,7 +82,11 @@ class ItemStore extends ChangeNotifier {
     DateTime Function()? now,
   }) : _api = api ?? (initialItems == null ? ItemApi() : null),
        _items = List<RentalItem>.of(initialItems ?? const []),
-       _now = now ?? DateTime.now;
+       _now = now ?? DateTime.now {
+    noticeStore.addListener(notifyListeners);
+  }
+
+  final NoticeStore noticeStore = NoticeStore();
 
   final DateTime Function() _now;
 
@@ -359,6 +364,8 @@ class ItemStore extends ChangeNotifier {
 
   @override
   void dispose() {
+    noticeStore.removeListener(notifyListeners);
+    noticeStore.dispose();
     _api?.close();
     super.dispose();
   }

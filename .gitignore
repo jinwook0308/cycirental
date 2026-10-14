@@ -15,3 +15,6 @@ mobile/android/hs_err_pid*.log
 
 # Backend is maintained in https://github.com/jinwook0308/cycirental-backend
 backend/
+
+# Local server configuration
+/mobile/config/local-api.json
