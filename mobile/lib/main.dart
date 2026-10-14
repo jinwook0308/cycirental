@@ -6,6 +6,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'item_model.dart';
 import 'demo_auth.dart';
 import 'admin_screen.dart';
+import 'notice_screens.dart';
+import 'account_screens.dart';
 import 'item_store.dart';
 import 'product_visual.dart';
 
@@ -291,7 +293,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         alignment: WrapAlignment.center,
                         children: [
                           TextButton(
-                            onPressed: () => _notReady(context),
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const SignupScreen(),
+                              ),
+                            ),
                             child: const Text('회원가입'),
                           ),
                           const Text('│', style: TextStyle(color: line)),
@@ -524,13 +530,7 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (store.isLoading && store.items.isEmpty) {
-      return const _ItemsLoadingView();
-    }
-    if (store.errorMessage != null && store.items.isEmpty) {
-      return _ItemsErrorView(store: store);
-    }
-
+    final featured = store.noticeStore.featured;
     final availableCount = store.items.fold<int>(
       0,
       (sum, item) => sum + store.available(item),
@@ -579,28 +579,39 @@ class HomeScreen extends StatelessWidget {
         SectionHeading(
           title: '공지사항',
           action: '더보기',
-          onPressed: () => Navigator.of(context)
-              .push(MaterialPageRoute(builder: (_) => const NoticesScreen())),
-        ),
-        Card(
-          margin: EdgeInsets.zero,
-          child: ListTile(
-            dense: true,
-            leading: const Icon(
-              Icons.notifications_active_outlined,
-              color: primaryBlue,
-              size: 22,
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => NoticesScreen(store: store.noticeStore),
             ),
-            title: const Text(
-              '[중요] 학과 물품 이용 안내',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: ink, fontWeight: FontWeight.w700),
-            ),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => showNotice(context, demoNotices.first),
           ),
         ),
+        if (featured == null)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('등록된 공지사항이 없습니다.'),
+            ),
+          )
+        else
+          Card(
+            margin: EdgeInsets.zero,
+            child: ListTile(
+              dense: true,
+              leading: const Icon(
+                Icons.notifications_active_outlined,
+                color: primaryBlue,
+                size: 22,
+              ),
+              title: Text(
+                featured.displayTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: ink, fontWeight: FontWeight.w700),
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => showNotice(context, featured),
+            ),
+          ),
         const SizedBox(height: 14),
         const _HomeBanner(),
         const SizedBox(height: 14),
@@ -654,65 +665,80 @@ class HomeScreen extends StatelessWidget {
         const SizedBox(height: 22),
         SectionHeading(title: '추천 물품', action: '더보기', onPressed: openItems),
         const SizedBox(height: 10),
-        SizedBox(
-          height: 191,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: store.items.take(3).length,
-            separatorBuilder: (_, _) => const SizedBox(width: 9),
-            itemBuilder: (context, index) {
-              final item = store.items[index];
-              return SizedBox(
-                width: 143,
-                child: Card(
-                  margin: EdgeInsets.zero,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(17),
-                    onTap: () => openItem(item),
-                    child: Padding(
-                      padding: const EdgeInsets.all(9),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ProductVisual(item: item, width: 123, height: 104),
-                          const SizedBox(height: 8),
-                          Text(
-                            item.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: ink,
-                              fontWeight: FontWeight.w800,
+        if (store.isLoading && store.items.isEmpty)
+          const SizedBox(height: 160, child: _ItemsLoadingView())
+        else if (store.errorMessage != null && store.items.isEmpty)
+          SizedBox(height: 180, child: _ItemsErrorView(store: store))
+        else if (store.items.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('등록된 물품이 없습니다.'),
+            ),
+          )
+        else
+          SizedBox(
+            height: 191,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: store.items.take(3).length,
+              separatorBuilder: (_, _) => const SizedBox(width: 9),
+              itemBuilder: (context, index) {
+                final item = store.items[index];
+                return SizedBox(
+                  width: 143,
+                  child: Card(
+                    margin: EdgeInsets.zero,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(17),
+                      onTap: () => openItem(item),
+                      child: Padding(
+                        padding: const EdgeInsets.all(9),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ProductVisual(item: item, width: 123, height: 104),
+                            const SizedBox(height: 8),
+                            Text(
+                              item.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: ink,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
-                          ),
-                          Text(
-                            item.subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: muted, fontSize: 11),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            store.available(item) > 0
-                                ? '대여 가능 ${store.available(item)}${item.unit}'
-                                : '현재 대여 불가',
-                            style: TextStyle(
-                              color: store.available(item) > 0
-                                  ? primaryBlue
-                                  : danger,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
+                            Text(
+                              item.subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: muted,
+                                fontSize: 11,
+                              ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 2),
+                            Text(
+                              store.available(item) > 0
+                                  ? '대여 가능 ${store.available(item)}${item.unit}'
+                                  : '현재 대여 불가',
+                              style: TextStyle(
+                                color: store.available(item) > 0
+                                    ? primaryBlue
+                                    : danger,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
         const SizedBox(height: 22),
       ],
     );
@@ -1848,6 +1874,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ),
+            ListTile(
+              leading: const Icon(Icons.campaign_outlined, color: primaryBlue),
+              title: const Text('공지사항'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      NoticesScreen(store: widget.store.noticeStore),
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.help_outline_rounded,
+                color: primaryBlue,
+              ),
+              title: const Text('이용 안내'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const UsageGuideScreen()),
+              ),
+            ),
             if (widget.user.isAdmin)
               ListTile(
                 leading: const Icon(
@@ -1882,60 +1930,5 @@ class _SettingsScreenState extends State<SettingsScreen> {
         style: TextStyle(color: muted, fontSize: 12),
       ),
     ],
-  );
-}
-
-class DemoNotice {
-  const DemoNotice(this.title, this.body);
-  final String title;
-  final String body;
-}
-
-const demoNotices = [
-  DemoNotice(
-    '[중요] 학과 물품 이용 안내',
-    '대여 물품 이용 수칙을 확인해 주세요.\n대여 및 반납은 학과 사무실 운영 시간에 진행해 주세요.\n\n현재 물품과 알림은 시연용 예시 데이터입니다.',
-  ),
-  DemoNotice(
-    '반납 일정 확인 안내',
-    '내 대여 화면에서 반납 예정일을 확인해 주세요.\n일정 변경이 필요한 경우 학과 사무실로 문의해 주세요.\n\n시연용 공지입니다.',
-  ),
-];
-
-void showNotice(BuildContext context, DemoNotice notice) {
-  showDialog<void>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(notice.title),
-      content: SingleChildScrollView(child: Text(notice.body)),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('닫기'),
-        ),
-      ],
-    ),
-  );
-}
-
-class NoticesScreen extends StatelessWidget {
-  const NoticesScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('공지사항')),
-    body: ListView.separated(
-      padding: const EdgeInsets.all(18),
-      itemCount: demoNotices.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, index) => Card(
-        margin: EdgeInsets.zero,
-        child: ListTile(
-          title: Text(demoNotices[index].title),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => showNotice(context, demoNotices[index]),
-        ),
-      ),
-    ),
   );
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'item_model.dart';
 import 'item_store.dart';
 import 'demo_auth.dart';
+import 'notice_screens.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key, required this.store, required this.user});
@@ -82,7 +83,11 @@ class _AdminScreenState extends State<AdminScreen> {
                     0 => dashboard(),
                     1 => items(),
                     2 => requests(),
-                    _ => returns(),
+                    3 => returns(),
+                    _ => AdminNoticesPanel(
+                      store: store.noticeStore,
+                      user: widget.user,
+                    ),
                   },
                 ),
               ],
@@ -106,6 +111,10 @@ class _AdminScreenState extends State<AdminScreen> {
                 NavigationDestination(
                   icon: Icon(Icons.assignment_return_outlined),
                   label: '반납 관리',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.campaign_outlined),
+                  label: '공지 관리',
                 ),
               ],
             ),
