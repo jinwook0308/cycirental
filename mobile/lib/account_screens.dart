@@ -40,17 +40,19 @@ class _SignupScreenState extends State<SignupScreen> {
         email: email.text.trim(),
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('회원가입이 완료되었습니다. 로그인해 주세요.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('회원가입이 완료되었습니다. 로그인해 주세요.')));
       Navigator.pop(context);
     } on AuthApiException catch (exception) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(exception.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(exception.message)));
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('서버에 연결하지 못했습니다.')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('서버에 연결하지 못했습니다.')));
       }
     } finally {
       if (mounted) setState(() => isSubmitting = false);
@@ -110,8 +112,9 @@ class _SignupScreenState extends State<SignupScreen> {
                   textInputAction: TextInputAction.next,
                   maxLength: 255,
                   decoration: const InputDecoration(labelText: '이메일'),
-                  validator: (value) => !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-                      .hasMatch(value?.trim() ?? '')
+                  validator: (value) =>
+                      !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                          .hasMatch(value?.trim() ?? '')
                       ? '올바른 이메일을 입력해 주세요.'
                       : null,
                 ),

@@ -12,6 +12,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'test_items.dart';
+import 'test_auth_api.dart';
 
 void main() {
   test('데모 계정은 올바른 비밀번호에만 권한을 부여한다', () {
@@ -137,7 +138,9 @@ void main() {
   testWidgets('학생은 관리자 메뉴와 관리자 화면에 접근할 수 없다', (tester) async {
     final store = testItemStore();
     addTearDown(store.dispose);
-    await tester.pumpWidget(DeptRentalApp(store: store));
+    await tester.pumpWidget(
+      DeptRentalApp(store: store, authApi: testAuthApi()),
+    );
     await tester.enterText(find.byKey(const Key('login-id')), 'student');
     await tester.enterText(
       find.byKey(const Key('login-password')),
@@ -166,7 +169,9 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final store = testItemStore();
     addTearDown(store.dispose);
-    await tester.pumpWidget(DeptRentalApp(store: store));
+    await tester.pumpWidget(
+      DeptRentalApp(store: store, authApi: testAuthApi()),
+    );
     await tester.enterText(find.byKey(const Key('login-id')), 'admin');
     await tester.enterText(find.byKey(const Key('login-password')), 'wrong');
     await tester.ensureVisible(find.text('로그인'));

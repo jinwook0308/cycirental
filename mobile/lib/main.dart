@@ -38,8 +38,11 @@ class _DeptRentalAppState extends State<DeptRentalApp>
     with WidgetsBindingObserver {
   late final ItemStore store;
   late final bool ownsStore;
+  late final AuthApi authApi;
+  late final bool ownsAuthApi;
   bool signedIn = false;
   AppUser? user;
+  String? accessToken;
   Timer? _expiryTimer;
 
   @override
@@ -48,6 +51,8 @@ class _DeptRentalAppState extends State<DeptRentalApp>
     WidgetsBinding.instance.addObserver(this);
     ownsStore = widget.store == null;
     store = widget.store ?? ItemStore();
+    ownsAuthApi = widget.authApi == null;
+    authApi = widget.authApi ?? AuthApi();
     _expiryTimer = Timer.periodic(
       const Duration(minutes: 1),
       (_) => store.refreshExpiredRequests(),
@@ -60,7 +65,36 @@ class _DeptRentalAppState extends State<DeptRentalApp>
     _expiryTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     if (ownsStore) store.dispose();
+    if (ownsAuthApi) authApi.close();
     super.dispose();
+  }
+
+  void _enter(AppUser account, String? token) {
+    setState(() {
+      user = account;
+      accessToken = token;
+      store.currentUserId = account.id;
+      store.refreshExpiredRequests();
+      signedIn = true;
+    });
+  }
+
+  Future<void> _logout() async {
+    final token = accessToken;
+    if (token != null) {
+      try {
+        await authApi.logout(token);
+      } catch (_) {
+        // 로컬 로그아웃은 서버 응답과 관계없이 완료합니다.
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      signedIn = false;
+      user = null;
+      accessToken = null;
+      store.currentUserId = AppUser.student.id;
+    });
   }
 
   @override
@@ -131,27 +165,17 @@ class _DeptRentalAppState extends State<DeptRentalApp>
         ? AppShell(
             store: store,
             user: user!,
-            onLogout: () => setState(() {
-              signedIn = false;
-              user = null;
-              store.currentUserId = AppUser.student.id;
-            }),
+            onLogout: () => unawaited(_logout()),
           )
-        : LoginScreen(
-            authApi: widget.authApi ?? AuthApi(),
-            onEnter: (account) => setState(() {
-              user = account;
-              store.currentUserId = account.id;
-              store.refreshExpiredRequests();
-              signedIn = true;
-            }),
-          ),
+        : LoginScreen(authApi: authApi, onEnter: _enter),
   );
 }
 
+typedef LoginCallback = void Function(AppUser account, String? accessToken);
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, required this.onEnter, required this.authApi});
-  final ValueChanged<AppUser> onEnter;
+  final LoginCallback onEnter;
   final AuthApi authApi;
 
   @override
@@ -175,7 +199,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final demoAccount = demoSignIn(id.text, password.text);
     if (demoAccount != null) {
       setState(() => error = null);
-      widget.onEnter(demoAccount);
+      widget.onEnter(demoAccount, null);
       return;
     }
     setState(() {
@@ -185,12 +209,15 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final session = await widget.authApi.login(id.text.trim(), password.text);
       if (!mounted) return;
-      widget.onEnter(AppUser(
-        userId: session.userId,
-        id: session.loginId,
-        name: session.displayName,
-        role: UserRole.student,
-      ));
+      widget.onEnter(
+        AppUser(
+          userId: session.userId,
+          id: session.loginId,
+          name: session.displayName,
+          role: UserRole.student,
+        ),
+        session.accessToken,
+      );
     } on AuthApiException catch (exception) {
       if (mounted) setState(() => error = exception.message);
     } catch (_) {
@@ -306,12 +333,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       TextButton(
-                        onPressed: () => widget.onEnter(AppUser.student),
+                        onPressed: () => widget.onEnter(AppUser.student, null),
                         child: const Text('로그인 · 데모 체험'),
                       ),
                       const SizedBox(height: 11),
                       const Text(
-                        '데모 계정\n학생: student / student1234\n관리자: admin / admin1234\n실제 서버 인증은 아직 연결되지 않았습니다.',
+                        '데모 계정\n학생: student / student1234\n관리자: admin / admin1234\n일반 계정은 서버 인증으로 로그인합니다.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 11, color: muted),
                       ),
@@ -322,7 +349,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           TextButton(
                             onPressed: () => Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => SignupScreen(authApi: widget.authApi),
+                                builder: (_) =>
+                                    SignupScreen(authApi: widget.authApi),
                               ),
                             ),
                             child: const Text('회원가입'),
@@ -1837,7 +1865,7 @@ class ProfileScreen extends StatelessWidget {
         ),
         SizedBox(height: 12),
         Text(
-          '실제 계정과 연결되지 않은 데모 프로필입니다.',
+          '계정 정보는 현재 로그인한 사용자 정보를 기준으로 표시됩니다.',
           style: TextStyle(color: muted, fontSize: 12),
         ),
       ],

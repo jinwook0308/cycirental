@@ -68,7 +68,9 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final store = testItemStore();
     addTearDown(store.dispose);
-    await tester.pumpWidget(DeptRentalApp(store: store, authApi: testAuthApi()));
+    await tester.pumpWidget(
+      DeptRentalApp(store: store, authApi: testAuthApi()),
+    );
     await tester.enterText(find.byKey(const Key('login-id')), 'admin');
     await tester.enterText(
       find.byKey(const Key('login-password')),
@@ -137,7 +139,9 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final store = testItemStore();
     addTearDown(store.dispose);
-    await tester.pumpWidget(DeptRentalApp(store: store, authApi: testAuthApi()));
+    await tester.pumpWidget(
+      DeptRentalApp(store: store, authApi: testAuthApi()),
+    );
     await tester.ensureVisible(find.text('회원가입'));
     await tester.tap(find.text('회원가입'));
     await tester.pumpAndSettle();
@@ -167,6 +171,21 @@ void main() {
       scrollable: scroll,
     );
     await tester.tap(find.byKey(const Key('signup-submit')));
+    await tester.pumpAndSettle();
+    expect(find.byType(LoginScreen), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('login-id')), 'new_student');
+    await tester.enterText(
+      find.byKey(const Key('login-password')),
+      'password123',
+    );
+    await tester.tap(find.text('로그인'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('프로필 보기'), findsOneWidget);
+
+    await tester.tap(find.text('설정'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('로그아웃'));
     await tester.pumpAndSettle();
     expect(find.byType(LoginScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
