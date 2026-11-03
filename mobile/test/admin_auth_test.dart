@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:dept_rental/admin_screen.dart';
-import 'package:dept_rental/demo_auth.dart';
 import 'package:dept_rental/item_api.dart';
 import 'package:dept_rental/item_model.dart';
 import 'package:dept_rental/item_store.dart';
@@ -15,19 +14,11 @@ import 'test_items.dart';
 import 'test_auth_api.dart';
 
 void main() {
-  test('데모 계정은 올바른 비밀번호에만 권한을 부여한다', () {
-    expect(demoSignIn('student', 'student1234')?.isAdmin, isFalse);
-    expect(demoSignIn('admin', 'admin1234')?.isAdmin, isTrue);
-    expect(demoSignIn('admin', 'wrong'), isNull);
-    expect(demoSignIn('someone', 'admin1234'), isNull);
-    expect(demoSignIn('', ''), isNull);
-  });
-
   test('승인·거절·반납과 물품 수정이 재고를 일관되게 유지한다', () {
     final store = testItemStore();
     addTearDown(store.dispose);
-    store.prepareAdminDemo();
-    store.prepareAdminDemo();
+    seedTestRequests(store);
+    seedTestRequests(store);
     expect(store.requests.length, 2);
     final request = store.requests.first;
     final before = store.available(request.item);
@@ -40,7 +31,7 @@ void main() {
     expect(store.requestReturn(rental), isTrue);
     store.confirmReturn(rental);
     store.confirmReturn(rental);
-    store.currentUserId = 'demo_student';
+    store.currentUserId = 'user:1';
     expect(store.available(request.item), before);
     store.rejectRequest(store.requests.last, reason: '학과 운영 일정 변경');
     expect(store.approveRequest(store.requests.last), isFalse);
@@ -104,6 +95,7 @@ void main() {
     final store = ItemStore(api: api);
     addTearDown(store.dispose);
     await store.loadItems();
+    expect(store.requests, isEmpty);
     final item = store.items.first;
     expect(
       store.saveItem(
@@ -141,10 +133,10 @@ void main() {
     await tester.pumpWidget(
       DeptRentalApp(store: store, authApi: testAuthApi()),
     );
-    await tester.enterText(find.byKey(const Key('login-id')), 'student');
+    await tester.enterText(find.byKey(const Key('login-id')), '20260001');
     await tester.enterText(
       find.byKey(const Key('login-password')),
-      'student1234',
+      'password123',
     );
     await tester.ensureVisible(find.text('로그인'));
     await tester.tap(find.text('로그인'));
@@ -154,7 +146,7 @@ void main() {
     expect(find.text('관리자'), findsNothing);
     await tester.pumpWidget(
       MaterialApp(
-        home: AdminScreen(store: store, user: AppUser.student),
+        home: AdminScreen(store: store, user: testStudent),
       ),
     );
     await tester.pumpAndSettle();
@@ -172,27 +164,27 @@ void main() {
     await tester.pumpWidget(
       DeptRentalApp(store: store, authApi: testAuthApi()),
     );
-    await tester.enterText(find.byKey(const Key('login-id')), 'admin');
+    await tester.enterText(find.byKey(const Key('login-id')), '20269999');
     await tester.enterText(find.byKey(const Key('login-password')), 'wrong');
     await tester.ensureVisible(find.text('로그인'));
     await tester.tap(find.text('로그인'));
     await tester.pumpAndSettle();
-    expect(find.text('아이디와 비밀번호를 확인해 주세요.'), findsOneWidget);
+    expect(find.text('학번과 비밀번호를 확인해 주세요.'), findsOneWidget);
     await tester.enterText(
       find.byKey(const Key('login-password')),
-      'admin1234',
+      'password123',
     );
     await tester.ensureVisible(find.text('로그인'));
     await tester.tap(find.text('로그인'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('프로필 보기'));
     await tester.pumpAndSettle();
-    expect(find.text('데모 관리자'), findsOneWidget);
+    expect(find.text('테스트 관리자'), findsOneWidget);
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
     await tester.tap(find.text('설정'));
     await tester.pumpAndSettle();
-    store.prepareAdminDemo();
+    seedTestRequests(store);
     await tester.tap(find.text('관리자'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('대여 승인'));
@@ -203,7 +195,7 @@ void main() {
     final approvedRental = store.allActiveRentals.first;
     store.currentUserId = approvedRental.studentId;
     store.requestReturn(approvedRental);
-    store.currentUserId = 'demo_admin';
+    store.currentUserId = 'user:99';
     await tester.tap(find.text('반납 관리'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('반납 확인'));
@@ -245,8 +237,7 @@ void main() {
     await tester.ensureVisible(find.text('로그아웃'));
     await tester.tap(find.text('로그아웃'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('로그인 · 데모 체험'));
-    await tester.tap(find.text('로그인 · 데모 체험'));
+    await loginTestStudent(tester);
     await tester.pumpAndSettle();
     await tester.tap(find.text('설정'));
     await tester.pumpAndSettle();

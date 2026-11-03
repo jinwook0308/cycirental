@@ -1,3 +1,5 @@
+import 'test_auth_api.dart';
+
 import 'package:dept_rental/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,13 +14,15 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final store = testItemStore();
     addTearDown(store.dispose);
-    await tester.pumpWidget(DeptRentalApp(store: store));
-    await tester.tap(find.text('로그인 · 데모 체험'));
+    await tester.pumpWidget(
+      DeptRentalApp(store: store, authApi: testAuthApi()),
+    );
+    await loginTestStudent(tester);
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     await tester.tap(find.byTooltip('프로필 보기'));
     await tester.pumpAndSettle();
-    expect(find.text('데모 학생'), findsOneWidget);
+    expect(find.text('테스트 학생'), findsOneWidget);
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
     await tester.tap(find.text('[중요] 학과 물품 이용 안내'));
@@ -80,7 +84,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('로그아웃'));
     await tester.pumpAndSettle();
-    expect(find.text('로그인 · 데모 체험'), findsOneWidget);
+    expect(find.byKey(const Key('login-id')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

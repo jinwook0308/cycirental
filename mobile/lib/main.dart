@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'item_model.dart';
-import 'demo_auth.dart';
+import 'app_user.dart';
 import 'auth_api.dart';
+import 'recovery_screens.dart';
 import 'admin_screen.dart';
 import 'notice_screens.dart';
 import 'account_screens.dart';
@@ -44,6 +45,8 @@ class _DeptRentalAppState extends State<DeptRentalApp>
   AppUser? user;
   String? accessToken;
   Timer? _expiryTimer;
+  StreamSubscription<String>? _sessionExpirySubscription;
+  final _navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
@@ -53,6 +56,10 @@ class _DeptRentalAppState extends State<DeptRentalApp>
     store = widget.store ?? ItemStore();
     ownsAuthApi = widget.authApi == null;
     authApi = widget.authApi ?? AuthApi();
+    _sessionExpirySubscription = authApi.expiredSessions.listen((token) {
+      // A late response from an earlier login must not log out a new session.
+      if (mounted && signedIn && token == accessToken) _clearSession();
+    });
     _expiryTimer = Timer.periodic(
       const Duration(minutes: 1),
       (_) => store.refreshExpiredRequests(),
@@ -63,6 +70,7 @@ class _DeptRentalAppState extends State<DeptRentalApp>
   @override
   void dispose() {
     _expiryTimer?.cancel();
+    unawaited(_sessionExpirySubscription?.cancel());
     WidgetsBinding.instance.removeObserver(this);
     if (ownsStore) store.dispose();
     if (ownsAuthApi) authApi.close();
@@ -73,28 +81,37 @@ class _DeptRentalAppState extends State<DeptRentalApp>
     setState(() {
       user = account;
       accessToken = token;
-      store.currentUserId = account.id;
+      store.currentUserId = account.userId == null
+          ? account.id
+          : 'user:${account.userId}';
+      store.currentUserName = account.name;
       store.refreshExpiredRequests();
       signedIn = true;
     });
   }
 
-  Future<void> _logout() async {
-    final token = accessToken;
-    if (token != null) {
-      try {
-        await authApi.logout(token);
-      } catch (_) {
-        // 로컬 로그아웃은 서버 응답과 관계없이 완료합니다.
-      }
-    }
+  void _clearSession() {
     if (!mounted) return;
+    _navigatorKey.currentState?.popUntil((route) => route.isFirst);
     setState(() {
       signedIn = false;
       user = null;
       accessToken = null;
-      store.currentUserId = AppUser.student.id;
+      store.currentUserId = '';
+      store.currentUserName = '';
     });
+  }
+
+  Future<void> _logout() async {
+    final token = accessToken;
+    _clearSession();
+    if (token != null) {
+      try {
+        await authApi.logout(token);
+      } catch (_) {
+        // Local logout is complete even if the server is unreachable.
+      }
+    }
   }
 
   @override
@@ -104,6 +121,7 @@ class _DeptRentalAppState extends State<DeptRentalApp>
 
   @override
   Widget build(BuildContext context) => MaterialApp(
+    navigatorKey: _navigatorKey,
     title: 'DeptRental',
     debugShowCheckedModeBanner: false,
     locale: const Locale('ko'),
@@ -162,11 +180,29 @@ class _DeptRentalAppState extends State<DeptRentalApp>
       ),
     ),
     home: signedIn
-        ? AppShell(
-            store: store,
-            user: user!,
-            onLogout: () => unawaited(_logout()),
-          )
+        ? user!.mustChangePassword
+              ? PasswordChangeScreen(
+                  authApi: authApi,
+                  token: accessToken!,
+                  onChanged: (session) => _enter(
+                    AppUser(
+                      userId: session.userId,
+                      studentNumber: session.studentNumber,
+                      id: session.loginId,
+                      name: session.displayName,
+                      role: session.isAdmin ? UserRole.admin : UserRole.student,
+                    ),
+                    session.accessToken,
+                  ),
+                  onLogout: () => unawaited(_logout()),
+                )
+              : AppShell(
+                  store: store,
+                  user: user!,
+                  authApi: authApi,
+                  accessToken: accessToken,
+                  onLogout: () => unawaited(_logout()),
+                )
         : LoginScreen(authApi: authApi, onEnter: _enter),
   );
 }
@@ -196,12 +232,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> signIn() async {
-    final demoAccount = demoSignIn(id.text, password.text);
-    if (demoAccount != null) {
-      setState(() => error = null);
-      widget.onEnter(demoAccount, null);
-      return;
-    }
+    if (isSubmitting) return;
     setState(() {
       error = null;
       isSubmitting = true;
@@ -212,9 +243,11 @@ class _LoginScreenState extends State<LoginScreen> {
       widget.onEnter(
         AppUser(
           userId: session.userId,
+          studentNumber: session.studentNumber,
+          mustChangePassword: session.mustChangePassword,
           id: session.loginId,
           name: session.displayName,
-          role: UserRole.student,
+          role: session.isAdmin ? UserRole.admin : UserRole.student,
         ),
         session.accessToken,
       );
@@ -225,12 +258,6 @@ class _LoginScreenState extends State<LoginScreen> {
     } finally {
       if (mounted) setState(() => isSubmitting = false);
     }
-  }
-
-  void _notReady(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('계정 기능은 서버 연동 후 제공됩니다. 데모로 둘러보세요.')),
-    );
   }
 
   @override
@@ -286,7 +313,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: primaryBlue,
                         ),
                       ),
-                      const SizedBox(height: 5),
                       const Text(
                         '함께 쓰는 물품, 더 나은 내일',
                         textAlign: TextAlign.center,
@@ -295,9 +321,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 35),
                       TextField(
                         key: const Key('login-id'),
+                        keyboardType: TextInputType.number,
                         controller: id,
                         decoration: const InputDecoration(
-                          hintText: '학번 / 아이디',
+                          hintText: '학번',
                           prefixIcon: Icon(
                             Icons.person_outline_rounded,
                             color: ink,
@@ -332,16 +359,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: const TextStyle(color: danger),
                           ),
                         ),
-                      TextButton(
-                        onPressed: () => widget.onEnter(AppUser.student, null),
-                        child: const Text('로그인 · 데모 체험'),
-                      ),
-                      const SizedBox(height: 11),
-                      const Text(
-                        '데모 계정\n학생: student / student1234\n관리자: admin / admin1234\n일반 계정은 서버 인증으로 로그인합니다.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 11, color: muted),
-                      ),
                       const SizedBox(height: 10),
                       Wrap(
                         alignment: WrapAlignment.center,
@@ -357,28 +374,19 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const Text('│', style: TextStyle(color: line)),
                           TextButton(
-                            onPressed: () => _notReady(context),
-                            child: const Text('아이디 찾기'),
-                          ),
-                          const Text('│', style: TextStyle(color: line)),
-                          TextButton(
-                            onPressed: () => _notReady(context),
-                            child: const Text('비밀번호 찾기'),
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => PasswordResetRequestScreen(
+                                  authApi: widget.authApi,
+                                ),
+                              ),
+                            ),
+                            child: const Text('비밀번호 초기화 요청'),
                           ),
                         ],
                       ),
                       const SizedBox(height: 24),
                       const CampusArtwork(),
-                      const SizedBox(height: 6),
-                      const Text(
-                        '우리의 학과, 함께 만들어가는 스마트한 공유 문화!',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: ink,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
                       const SizedBox(height: 18),
                     ],
                   ),
@@ -422,10 +430,14 @@ class AppShell extends StatefulWidget {
     required this.store,
     required this.user,
     required this.onLogout,
+    this.authApi,
+    this.accessToken,
   });
   final AppUser user;
   final ItemStore store;
   final VoidCallback onLogout;
+  final AuthApi? authApi;
+  final String? accessToken;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -480,6 +492,8 @@ class _AppShellState extends State<AppShell> {
             store: widget.store,
             user: widget.user,
             onLogout: widget.onLogout,
+            authApi: widget.authApi,
+            accessToken: widget.accessToken,
           ),
         ],
       ),
@@ -568,7 +582,7 @@ class _ItemsErrorView extends StatelessWidget {
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
     super.key,
-    this.user = AppUser.student,
+    required this.user,
     required this.store,
     required this.openItem,
     required this.openItems,
@@ -1107,7 +1121,6 @@ class _ItemsScreenState extends State<ItemsScreen> {
                                         fontSize: 11,
                                       ),
                                     ),
-                                    const SizedBox(height: 6),
                                     Text(
                                       '$count / ${item.total} ${item.unit}',
                                       style: const TextStyle(
@@ -1328,12 +1341,6 @@ class _DetailScreenState extends State<DetailScreen> {
                       }
                     : null,
               ),
-              const SizedBox(height: 5),
-              const Text(
-                '물품 정보는 실제 DB에서 가져오지만, 대여 신청은 아직 이 기기에만 임시로 표시됩니다.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: muted, fontSize: 10),
-              ),
             ],
           ),
         ),
@@ -1442,19 +1449,9 @@ class RentalsScreen extends StatelessWidget {
                     )
                   : ListView.separated(
                       padding: const EdgeInsets.all(17),
-                      itemCount: store.activeRentals.length + 1,
+                      itemCount: store.activeRentals.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 9),
                       itemBuilder: (context, index) {
-                        if (index == store.activeRentals.length) {
-                          return const Padding(
-                            padding: EdgeInsets.only(top: 9),
-                            child: Text(
-                              '표시된 대여 내역은 시연용이며 서버에 저장되지 않습니다.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: muted, fontSize: 11),
-                            ),
-                          );
-                        }
                         final rental = store.activeRentals[index];
                         return _RentalCard(
                           rental: rental,
@@ -1772,11 +1769,6 @@ class AlertsScreen extends StatelessWidget {
               time: dateText(request.requestedAt),
             ),
           ),
-        const SizedBox(height: 18),
-        const Text(
-          '푸시 알림은 아직 발송되지 않습니다. 이 화면은 시연용입니다.',
-          style: TextStyle(color: muted, fontSize: 11),
-        ),
       ],
     );
   }
@@ -1832,7 +1824,7 @@ class _AlertRow extends StatelessWidget {
 }
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({super.key, this.user = AppUser.student});
+  const ProfileScreen({super.key, required this.user});
   final AppUser user;
 
   @override
@@ -1855,18 +1847,16 @@ class ProfileScreen extends StatelessWidget {
           child: Column(
             children: [
               ListTile(title: const Text('이름'), subtitle: Text(user.name)),
-              ListTile(title: Text('학번 / 아이디'), subtitle: Text(user.id)),
+              ListTile(
+                title: const Text('학번'),
+                subtitle: Text(user.studentNumber ?? '미등록'),
+              ),
               ListTile(
                 title: const Text('계정 유형'),
                 subtitle: Text(user.isAdmin ? '관리자' : '학생'),
               ),
             ],
           ),
-        ),
-        SizedBox(height: 12),
-        Text(
-          '계정 정보는 현재 로그인한 사용자 정보를 기준으로 표시됩니다.',
-          style: TextStyle(color: muted, fontSize: 12),
         ),
       ],
     ),
@@ -1879,10 +1869,14 @@ class SettingsScreen extends StatefulWidget {
     required this.store,
     required this.user,
     required this.onLogout,
+    this.authApi,
+    this.accessToken,
   });
   final ItemStore store;
   final AppUser user;
   final VoidCallback onLogout;
+  final AuthApi? authApi;
+  final String? accessToken;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -1900,7 +1894,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             SwitchListTile(
               title: const Text('알림 설정'),
-              subtitle: const Text('대여 및 반납 알림 (데모 설정)'),
+              subtitle: const Text('대여 및 반납 알림'),
               value: notificationsEnabled,
               onChanged: (value) =>
                   setState(() => notificationsEnabled = value),
@@ -1916,10 +1910,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 context: context,
                 builder: (context) => AlertDialog(
                   title: const Text('CYCIRENTAL'),
-                  content: const Text(
-                    '버전 1.0.0\n학과 대여 물품 관리 앱\n'
-                    '물품 정보는 Backend API에서 불러오며, 대여·반납은 임시 기능입니다.',
-                  ),
+                  content: const Text('버전 1.0.0\n학과 대여 물품 관리 앱'),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
@@ -1965,8 +1956,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   widget.store.refreshExpiredRequests();
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) =>
-                          AdminScreen(store: widget.store, user: widget.user),
+                      builder: (_) => AdminScreen(
+                        store: widget.store,
+                        user: widget.user,
+                        authApi: widget.authApi,
+                        accessToken: widget.accessToken,
+                      ),
                     ),
                   );
                 },
@@ -1978,11 +1973,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ],
         ),
-      ),
-      const SizedBox(height: 12),
-      const Text(
-        '알림 설정은 화면 데모이며 실제 푸시는 발송되지 않습니다. 설정은 로그아웃하거나 앱을 다시 실행하면 초기화됩니다.',
-        style: TextStyle(color: muted, fontSize: 12),
       ),
     ],
   );
