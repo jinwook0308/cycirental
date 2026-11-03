@@ -4,6 +4,7 @@ import 'package:dept_rental/notice_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'test_auth_api.dart';
 import 'test_items.dart';
 
 void main() {
@@ -67,7 +68,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final store = testItemStore();
     addTearDown(store.dispose);
-    await tester.pumpWidget(DeptRentalApp(store: store));
+    await tester.pumpWidget(DeptRentalApp(store: store, authApi: testAuthApi()));
     await tester.enterText(find.byKey(const Key('login-id')), 'admin');
     await tester.enterText(
       find.byKey(const Key('login-password')),
@@ -129,30 +130,30 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('회원가입 검증과 실제 계정 미생성 안내', (tester) async {
+  testWidgets('회원가입 검증과 API 가입 처리', (tester) async {
     tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final store = testItemStore();
     addTearDown(store.dispose);
-    await tester.pumpWidget(DeptRentalApp(store: store));
+    await tester.pumpWidget(DeptRentalApp(store: store, authApi: testAuthApi()));
     await tester.ensureVisible(find.text('회원가입'));
     await tester.tap(find.text('회원가입'));
     await tester.pumpAndSettle();
     final scroll = find.byType(Scrollable).first;
     await tester.scrollUntilVisible(
-      find.text('회원가입 입력 확인'),
+      find.byKey(const Key('signup-submit')),
       150,
       scrollable: scroll,
     );
-    await tester.tap(find.text('회원가입 입력 확인'));
+    await tester.tap(find.byKey(const Key('signup-submit')));
     await tester.pumpAndSettle();
-    expect(find.text('회원가입 입력 확인 완료'), findsNothing);
+    expect(find.byKey(const Key('signup-submit')), findsOneWidget);
     for (final entry in {
       'signup-name': '테스트 학생',
-      'signup-student-id': '20260001',
       'signup-login-id': 'new_student',
+      'signup-email': 'student@example.com',
       'signup-password': 'password123',
       'signup-confirm': 'password123',
     }.entries) {
@@ -161,17 +162,13 @@ void main() {
       await tester.enterText(field, entry.value);
     }
     await tester.scrollUntilVisible(
-      find.text('회원가입 입력 확인'),
+      find.byKey(const Key('signup-submit')),
       150,
       scrollable: scroll,
     );
-    await tester.tap(find.text('회원가입 입력 확인'));
-    await tester.pumpAndSettle();
-    expect(find.text('회원가입 입력 확인 완료'), findsOneWidget);
-    await tester.tap(find.text('로그인 화면으로'));
+    await tester.tap(find.byKey(const Key('signup-submit')));
     await tester.pumpAndSettle();
     expect(find.byType(LoginScreen), findsOneWidget);
-    expect(demoSignIn('new_student', 'password123'), isNull);
     expect(tester.takeException(), isNull);
   });
 }

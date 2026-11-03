@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'item_model.dart';
 import 'demo_auth.dart';
+import 'auth_api.dart';
 import 'admin_screen.dart';
 import 'notice_screens.dart';
 import 'account_screens.dart';
@@ -24,9 +25,10 @@ const blush = Color(0xFFFFEBEE);
 const danger = Color(0xFFE34D5D);
 
 class DeptRentalApp extends StatefulWidget {
-  const DeptRentalApp({super.key, this.store});
+  const DeptRentalApp({super.key, this.store, this.authApi});
 
   final ItemStore? store;
+  final AuthApi? authApi;
 
   @override
   State<DeptRentalApp> createState() => _DeptRentalAppState();
@@ -136,6 +138,7 @@ class _DeptRentalAppState extends State<DeptRentalApp>
             }),
           )
         : LoginScreen(
+            authApi: widget.authApi ?? AuthApi(),
             onEnter: (account) => setState(() {
               user = account;
               store.currentUserId = account.id;
@@ -147,8 +150,9 @@ class _DeptRentalAppState extends State<DeptRentalApp>
 }
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, required this.onEnter});
+  const LoginScreen({super.key, required this.onEnter, required this.authApi});
   final ValueChanged<AppUser> onEnter;
+  final AuthApi authApi;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -158,6 +162,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final id = TextEditingController();
   final password = TextEditingController();
   String? error;
+  bool isSubmitting = false;
 
   @override
   void dispose() {
@@ -166,14 +171,33 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void signIn() {
-    final account = demoSignIn(id.text, password.text);
-    if (account == null) {
-      setState(() => error = '아이디와 비밀번호를 확인해 주세요.');
+  Future<void> signIn() async {
+    final demoAccount = demoSignIn(id.text, password.text);
+    if (demoAccount != null) {
+      setState(() => error = null);
+      widget.onEnter(demoAccount);
       return;
     }
-    setState(() => error = null);
-    widget.onEnter(account);
+    setState(() {
+      error = null;
+      isSubmitting = true;
+    });
+    try {
+      final session = await widget.authApi.login(id.text.trim(), password.text);
+      if (!mounted) return;
+      widget.onEnter(AppUser(
+        userId: session.userId,
+        id: session.loginId,
+        name: session.displayName,
+        role: UserRole.student,
+      ));
+    } on AuthApiException catch (exception) {
+      if (mounted) setState(() => error = exception.message);
+    } catch (_) {
+      if (mounted) setState(() => error = '서버에 연결하지 못했습니다.');
+    } finally {
+      if (mounted) setState(() => isSubmitting = false);
+    }
   }
 
   void _notReady(BuildContext context) {
@@ -268,7 +292,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       const SizedBox(height: 18),
-                      PrimaryAction(label: '로그인', onPressed: signIn),
+                      PrimaryAction(
+                        label: isSubmitting ? '로그인 중...' : '로그인',
+                        onPressed: isSubmitting ? null : signIn,
+                      ),
                       if (error != null)
                         Padding(
                           padding: const EdgeInsets.only(top: 8),
@@ -295,7 +322,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           TextButton(
                             onPressed: () => Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => const SignupScreen(),
+                                builder: (_) => SignupScreen(authApi: widget.authApi),
                               ),
                             ),
                             child: const Text('회원가입'),

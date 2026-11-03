@@ -7,7 +7,8 @@ import 'item_model.dart';
 class ApiConfig {
   static const _configuredBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:8080',
+    //defaultValue: 'http://10.0.2.2:8080',
+    defaultValue: 'http://127.0.0.1:8080',
   );
 
   static String get baseUrl =>
