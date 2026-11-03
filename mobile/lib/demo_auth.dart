@@ -1,7 +1,8 @@
 enum UserRole { student, admin }
 
 class AppUser {
-  const AppUser({required this.id, required this.name, required this.role});
+  const AppUser({this.userId, required this.id, required this.name, required this.role});
+  final int? userId;
   final String id;
   final String name;
   final UserRole role;
