@@ -2,7 +2,7 @@ import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 
-import 'demo_auth.dart';
+import 'app_user.dart';
 
 class AppNotice {
   const AppNotice({
@@ -30,7 +30,8 @@ class NoticeStore extends ChangeNotifier {
       AppNotice(
         id: 1,
         title: '학과 물품 이용 안내',
-        body: '대여 신청은 관리자 승인 후 이용할 수 있습니다.\n최대 대여 기간은 14일이며, 반납은 관리자 확인 후 완료됩니다.\n\n이 공지는 화면 확인용 임시 데이터입니다.',
+        body:
+            '대여 신청은 관리자 승인 후 이용할 수 있습니다.\n최대 대여 기간은 14일이며, 반납은 관리자 확인 후 완료됩니다.',
         isImportant: true,
         createdAt: now,
         updatedAt: now,
@@ -38,7 +39,8 @@ class NoticeStore extends ChangeNotifier {
       AppNotice(
         id: 2,
         title: '반납 일정 확인 안내',
-        body: '내 대여 화면에서 반납 예정일을 확인해 주세요.\n물품을 전달한 뒤 반납 요청을 하고 관리자 확인을 기다려 주세요.\n\n이 공지는 화면 확인용 임시 데이터입니다.',
+        body:
+            '내 대여 화면에서 반납 예정일을 확인해 주세요.\n물품을 전달한 뒤 반납 요청을 하고 관리자 확인을 기다려 주세요.',
         isImportant: false,
         createdAt: now,
         updatedAt: now,

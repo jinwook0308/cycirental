@@ -1,9 +1,9 @@
-import 'package:dept_rental/demo_auth.dart';
 import 'package:dept_rental/main.dart';
 import 'package:dept_rental/notice_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'test_auth_api.dart';
 import 'test_items.dart';
 
 void main() {
@@ -12,20 +12,17 @@ void main() {
     addTearDown(notices.dispose);
     expect(
       notices.save(
-        actor: AppUser.student,
+        actor: testStudent,
         title: '학생 공지',
         body: '내용',
         isImportant: true,
       ),
       isFalse,
     );
-    expect(
-      notices.delete(notices.notices.first, actor: AppUser.student),
-      isFalse,
-    );
+    expect(notices.delete(notices.notices.first, actor: testStudent), isFalse);
     expect(
       notices.save(
-        actor: AppUser.admin,
+        actor: testAdmin,
         title: '새 공지',
         body: '내용',
         isImportant: true,
@@ -36,7 +33,7 @@ void main() {
     final newest = notices.featured!;
     expect(
       notices.save(
-        actor: AppUser.admin,
+        actor: testAdmin,
         original: newest,
         title: '수정 공지',
         body: '수정 내용',
@@ -46,12 +43,12 @@ void main() {
     );
     expect(notices.featured?.title, '학과 물품 이용 안내');
     for (final notice in notices.notices.toList()) {
-      expect(notices.delete(notice, actor: AppUser.admin), isTrue);
+      expect(notices.delete(notice, actor: testAdmin), isTrue);
     }
     expect(notices.featured, isNull);
     expect(
       notices.save(
-        actor: AppUser.admin,
+        actor: testAdmin,
         title: ' ',
         body: '내용',
         isImportant: false,
@@ -67,11 +64,13 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final store = testItemStore();
     addTearDown(store.dispose);
-    await tester.pumpWidget(DeptRentalApp(store: store));
-    await tester.enterText(find.byKey(const Key('login-id')), 'admin');
+    await tester.pumpWidget(
+      DeptRentalApp(store: store, authApi: testAuthApi()),
+    );
+    await tester.enterText(find.byKey(const Key('login-id')), '20269999');
     await tester.enterText(
       find.byKey(const Key('login-password')),
-      'admin1234',
+      'password123',
     );
     await tester.ensureVisible(find.text('로그인'));
     await tester.tap(find.text('로그인'));
@@ -91,16 +90,16 @@ void main() {
       find.byKey(const Key('notice-body')),
       '휴무일에는 대여와 반납이 중단됩니다.',
     );
-    await tester.ensureVisible(find.text('임시 저장'));
-    await tester.tap(find.text('임시 저장'));
+    await tester.ensureVisible(find.text('저장'));
+    await tester.tap(find.text('저장'));
     await tester.pumpAndSettle();
     final id = store.noticeStore.featured!.id;
     expect(store.noticeStore.featured!.title, '학과 휴무 안내');
     await tester.tap(find.byKey(ValueKey('edit-notice-$id')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('notice-title')), '휴무 일정 변경');
-    await tester.ensureVisible(find.text('임시 저장'));
-    await tester.tap(find.text('임시 저장'));
+    await tester.ensureVisible(find.text('저장'));
+    await tester.tap(find.text('저장'));
     await tester.pumpAndSettle();
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
@@ -129,30 +128,32 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('회원가입 검증과 실제 계정 미생성 안내', (tester) async {
+  testWidgets('회원가입 검증과 API 가입 처리', (tester) async {
     tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final store = testItemStore();
     addTearDown(store.dispose);
-    await tester.pumpWidget(DeptRentalApp(store: store));
+    await tester.pumpWidget(
+      DeptRentalApp(store: store, authApi: testAuthApi()),
+    );
     await tester.ensureVisible(find.text('회원가입'));
     await tester.tap(find.text('회원가입'));
     await tester.pumpAndSettle();
     final scroll = find.byType(Scrollable).first;
     await tester.scrollUntilVisible(
-      find.text('회원가입 입력 확인'),
+      find.byKey(const Key('signup-submit')),
       150,
       scrollable: scroll,
     );
-    await tester.tap(find.text('회원가입 입력 확인'));
+    await tester.tap(find.byKey(const Key('signup-submit')));
     await tester.pumpAndSettle();
-    expect(find.text('회원가입 입력 확인 완료'), findsNothing);
+    expect(find.byKey(const Key('signup-submit')), findsOneWidget);
     for (final entry in {
       'signup-name': '테스트 학생',
-      'signup-student-id': '20260001',
-      'signup-login-id': 'new_student',
+      'signup-student-number': '20260001',
+      'signup-phone': '01012345678',
       'signup-password': 'password123',
       'signup-confirm': 'password123',
     }.entries) {
@@ -161,17 +162,28 @@ void main() {
       await tester.enterText(field, entry.value);
     }
     await tester.scrollUntilVisible(
-      find.text('회원가입 입력 확인'),
+      find.byKey(const Key('signup-submit')),
       150,
       scrollable: scroll,
     );
-    await tester.tap(find.text('회원가입 입력 확인'));
-    await tester.pumpAndSettle();
-    expect(find.text('회원가입 입력 확인 완료'), findsOneWidget);
-    await tester.tap(find.text('로그인 화면으로'));
+    await tester.tap(find.byKey(const Key('signup-submit')));
     await tester.pumpAndSettle();
     expect(find.byType(LoginScreen), findsOneWidget);
-    expect(demoSignIn('new_student', 'password123'), isNull);
+
+    await tester.enterText(find.byKey(const Key('login-id')), '20260001');
+    await tester.enterText(
+      find.byKey(const Key('login-password')),
+      'password123',
+    );
+    await tester.tap(find.text('로그인'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('프로필 보기'), findsOneWidget);
+
+    await tester.tap(find.text('설정'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('로그아웃'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LoginScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

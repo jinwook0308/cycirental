@@ -39,8 +39,8 @@ class RentalRecord {
     required this.start,
     required this.due,
     this.returnedAt,
-    this.student = '데모 학생',
-    this.studentId = 'demo_student',
+    this.student = '',
+    this.studentId = '',
   });
 
   RentalItem item;
@@ -107,38 +107,18 @@ class ItemStore extends ChangeNotifier {
   final List<RentalItem> _items;
   final List<RentalRecord> rentals = [];
 
-  String currentUserId = 'demo_student';
+  String currentUserId = '';
+  String currentUserName = '';
   final List<DemoRequest> requests = [];
   final Map<int, RentalItem> _localItems = {};
   final Map<int, int> _stockAdjustments = {};
   int _nextLocalId = -1;
-  bool _adminDemoPrepared = false;
-  bool _adminDemoRequested = false;
 
   List<RentalRecord> get allActiveRentals =>
       rentals.where((rental) => rental.isActive).toList();
   List<DemoRequest> get pendingRequests => requests
       .where((request) => request.status == RequestStatus.pending)
       .toList();
-
-  // Sample approvals are created from loaded items; no request is sent to the API.
-  void prepareAdminDemo() {
-    _adminDemoRequested = true;
-    if (_adminDemoPrepared || items.isEmpty) return;
-    _adminDemoPrepared = true;
-    final due = dateOnly(DateTime.now()).add(const Duration(days: 3));
-    for (final (index, item) in items.take(2).indexed) {
-      requests.add(
-        DemoRequest(
-          item: item,
-          student: '샘플 학생 ${index + 1}',
-          studentId: 'sample_${index + 1}',
-          due: due,
-        ),
-      );
-    }
-    notifyListeners();
-  }
 
   bool approveRequest(DemoRequest request) {
     refreshExpiredRequests();
@@ -240,7 +220,6 @@ class ItemStore extends ChangeNotifier {
     }
     _localItems[item.id] = item;
     _updateReferences();
-    if (_adminDemoRequested) prepareAdminDemo();
     notifyListeners();
     return true;
   }
@@ -290,7 +269,6 @@ class ItemStore extends ChangeNotifier {
         ..clear()
         ..addAll(merged.values);
       _updateReferences();
-      if (_adminDemoRequested) prepareAdminDemo();
     } catch (_) {
       errorMessage =
           '백엔드와 연결할 수 없습니다. '
@@ -301,12 +279,17 @@ class ItemStore extends ChangeNotifier {
     }
   }
 
-  int available(RentalItem item) =>
-      item.initialAvailable +
-      (_stockAdjustments[item.id] ?? 0) -
-      rentals
-          .where((rental) => rental.isActive && rental.item.id == item.id)
-          .length;
+  int available(RentalItem item) {
+    final remaining =
+        item.initialAvailable +
+        (_stockAdjustments[item.id] ?? 0) -
+        rentals
+            .where((rental) => rental.isActive && rental.item.id == item.id)
+            .length;
+    // Server snapshots can change while rentals are still local. Never expose
+    // negative stock or permit an approval based on an out-of-range value.
+    return remaining.clamp(0, item.total);
+  }
 
   bool requestRental(RentalItem item, DateTime due) {
     refreshExpiredRequests();
@@ -331,7 +314,7 @@ class ItemStore extends ChangeNotifier {
         due: dateOnly(due),
         requestedAt: _now(),
         studentId: currentUserId,
-        student: currentUserId == 'demo_admin' ? '데모 관리자' : '데모 학생',
+        student: currentUserName,
       ),
     );
     // Waiting requests do not consume stock. Approval rechecks stock atomically.

@@ -1,6 +1,43 @@
-# 공지·회원가입 화면 API 연결 요청
+# Frontend API 연결 현황과 계약
 
-현재 프론트 화면은 구현됐으며 아래 API는 **제안 명세**입니다. 실제 백엔드 경로·응답과 합의 후 연결해야 합니다. 이 문서는 백엔드 구현 완료를 뜻하지 않습니다.
+2026-11-03 로컬 코드 기준입니다. 인증 API는 구현·연결 코드가 있고, 아래 공지 API는 제안 상태입니다. 원격 반영 여부는 DB·배포 결과로 따로 확인합니다.
+
+## 인증 API — 로컬 구현
+
+| 작업 | API | 요청 / 응답 |
+| --- | --- | --- |
+| 가입 | POST /api/auth/signup | displayName, studentNumber, phoneNumber, password → 201 |
+| 로그인 | POST /api/auth/login | studentNumber, password → 사용자·토큰 → 200 |
+| 로그아웃 | POST /api/auth/logout | Bearer 토큰 → 204 |
+| 초기화 요청 | POST /api/auth/password-reset/requests | displayName, studentNumber → 202 |
+| 관리자 대기 목록 | GET /api/admin/password-reset-requests | Bearer 토큰 → 오래된 순 최대 100건 |
+| 관리자 초기화 | POST /api/admin/password-reset-requests/{id}/approve | Bearer + identityConfirmed:true → temporaryPassword, expiresAt |
+| 관리자 거절 | POST /api/admin/password-reset-requests/{id}/reject | Bearer → 200 |
+| 비밀번호 변경 | POST /api/auth/password/change | Bearer + currentPassword, newPassword → 새 사용자·토큰 → 200 |
+
+회원가입은 이름 / 학번 / 전화번호 / 비밀번호 / 비밀번호 확인을 입력합니다. 요청에는 확인용 비밀번호를 보내지 않습니다.
+이름은 2~30자, 일반 학번은 숫자 6~12자리, 비밀번호는 8~64자입니다. 전화번호는 국내 휴대전화번호를 숫자 10~11자리로 받습니다. 학번과 전화번호는 앞자리 0을 보존하는 문자열입니다.
+학번을 로그인 아이디로 사용하며 별도 아이디·이메일 입력과 아이디 찾기는 제거했습니다. 새 계정은 학생 권한으로만 생성됩니다.
+예약 관리자 학번 `001`은 로그인·초기화 요청에서만 예외로 허용합니다. 일반 회원가입으로 만들 수 없고, DB의 관리자 계정과 서버 인증 성공 응답이 필요합니다. 앱에 고정 로그인 우회는 없습니다.
+
+초기화는 이름·학번으로 요청한 뒤 관리자가 학생증 등으로 본인을 확인해 처리합니다. 이름·학번·전화번호 입력만으로 본인 인증을 완료한 것으로 보지 않습니다.
+계정이 없거나 정보가 달라도 요청 응답은 같은 202이며, 동일 계정의 대기 요청은 중복 생성하지 않습니다.
+관리자 승인 시 서버가 무작위 임시 비밀번호를 만들고 해시만 저장합니다. 임시 비밀번호는 24시간 유효하며 관리자 화면에 한 번 표시하므로 본인에게 별도로 전달합니다. 문자 발송·전화번호 인증은 연결하지 않았습니다.
+초기화 시 기존 세션을 폐기합니다. `mustChangePassword=true`로 로그인하면 홈 진입 전 새 비밀번호 설정을 완료해야 합니다. 서버도 변경 전 관리자 API 사용을 거부합니다.
+변경 완료 시 기존 세션을 폐기하고 새 토큰을 발급합니다. 일반 로그인 토큰은 7일 유효합니다. 기존 토큰 방식의 POST /api/auth/password-reset은 410, /api/auth/find-id는 제거 상태입니다.
+
+로그인·비밀번호 변경 응답은 userId, loginId, displayName, accessToken, tokenType, isAdmin, studentNumber, mustChangePassword를 포함합니다.
+앱은 userId를 로컬 대여 소유자 구분에 사용하고 isAdmin으로 관리자 메뉴를 결정합니다. 관리자 초기화 API는 서버에서 토큰·만료·DB 권한을 확인합니다.
+전화번호는 가입 요청의 phoneNumber로 전달하며 현재 로그인 응답에는 포함하지 않습니다. 번호 인증·문자 발송·전화번호 수정 API는 미구현입니다.
+400은 입력 오류, 401은 인증 실패·만료, 403은 권한 부족, 409는 중복·이미 처리된 요청입니다. 가능한 경우 서버의 detail을 표시합니다.
+
+연결 지점: `mobile/lib/auth_api.dart`, `account_screens.dart`, `recovery_screens.dart`, `main.dart`.
+DB 구조와 관리자 등록 절차는 백엔드의 [REMOTE_SCHEMA_ALIGNMENT.md](https://github.com/cycirental-team/cycirental-backend/blob/main/REMOTE_SCHEMA_ALIGNMENT.md)를 기준으로 합니다. 해당 문서는 이 변경을 Git에 반영한 후 원격에서 확인할 수 있습니다.
+
+## 물품 조회 — 연결됨
+
+앱은 GET /api/items로 목록·수량을 가져오며 검색·상세 화면에 사용합니다. 관리자 물품 등록·수정은 아직 메모리 방식입니다.
+연결 지점은 `mobile/lib/item_api.dart`, `item_model.dart`, `item_store.dart`입니다.
 
 ## 공지사항
 
@@ -24,22 +61,8 @@
 프론트 연결 지점: `mobile/lib/notice_store.dart`의 `save`, `delete`, `notices`와 `featured`.
 새 API를 연결할 때 로딩·실패·재시도와 실패 시 기존 데이터 유지 처리가 필요합니다.
 
-## 회원가입
 
-현재 구현: 이름·학번·아이디·비밀번호·비밀번호 확인 입력 및 형식 검증.
-입력 확인 완료 다이얼로그만 표시하며 **계정을 실제로 생성하거나 개인정보를 서버에 전송하지 않습니다.**
+## 대여·반납 — 미연결
 
-제안 API: `POST /api/auth/signup`.
-요청 데이터: `name`, `studentId`, `username`, `password`. 비밀번호 확인은 프론트 비교용으로 서버에 보내지 않습니다.
-가입 계정은 서버에서 학생 권한으로 생성해야 합니다. 클라이언트가 관리자 권한을 지정할 수 없어야 합니다.
-아이디·학번 중복 확인 및 계정 생성 결과·중복 오류 형식을 합의해야 합니다.
-비밀번호를 응답·로그·저장 문서에 포함하지 않아야 합니다.
-
-현재 화면 검증: 이름 2~30자, 학번 숫자 6~12자리, 아이디 영문·숫자·밑줄 4~20자, 비밀번호 8~64자 및 확인값 일치.
-학과 학번 규칙과 서버 비밀번호 정책에 맞춰 조정할 수 있습니다.
-프론트 연결 지점: `mobile/lib/account_screens.dart`의 `SignupScreen.submit`.
-
-## 이용 안내
-
-설정 → 이용 안내에서 최대 14일, 관리자 승인 후 수령, 반납 요청 후 관리자 확인, 일정 변경·문제 발생 시 문의 절차를 표시합니다.
-운영 장소·시간·정책은 학과 담당자와 확인 후 실제 운영 문구로 변경해야 합니다.
+신청·승인·거절·취소·만료·반납 요청·반납 확인은 같은 앱 메모리에서만 처리합니다. 서버 저장·기기 간 공유·서버 권한과 재고 동시성 검증은 대여 API 연결 시 구현합니다.
+서버 주소는 Git 제외된 `mobile/config/local-api.json`으로 지정하며 공용 기본값은 `http://10.0.2.2:8080`을 유지합니다.

@@ -1,3 +1,5 @@
+import 'test_auth_api.dart';
+
 import 'package:dept_rental/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,9 +10,11 @@ void main() {
   testWidgets('로그인에서 물품 목록과 검색으로 이동할 수 있다', (tester) async {
     final store = testItemStore();
     addTearDown(store.dispose);
-    await tester.pumpWidget(DeptRentalApp(store: store));
-    expect(find.text('로그인 · 데모 체험'), findsOneWidget);
-    await tester.tap(find.text('로그인 · 데모 체험'));
+    await tester.pumpWidget(
+      DeptRentalApp(store: store, authApi: testAuthApi()),
+    );
+    expect(find.byKey(const Key('login-id')), findsOneWidget);
+    await loginTestStudent(tester);
     await tester.pumpAndSettle();
     expect(find.byType(HomeScreen), findsOneWidget);
     await tester.tap(find.text('물품'));
@@ -27,8 +31,10 @@ void main() {
   testWidgets('물품 상세에서 임시 대여를 신청할 수 있다', (tester) async {
     final store = testItemStore();
     addTearDown(store.dispose);
-    await tester.pumpWidget(DeptRentalApp(store: store));
-    await tester.tap(find.text('로그인 · 데모 체험'));
+    await tester.pumpWidget(
+      DeptRentalApp(store: store, authApi: testAuthApi()),
+    );
+    await loginTestStudent(tester);
     await tester.pumpAndSettle();
     await tester.tap(find.text('물품'));
     await tester.pumpAndSettle();

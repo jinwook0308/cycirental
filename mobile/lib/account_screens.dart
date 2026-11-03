@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import 'auth_api.dart';
 import 'item_store.dart';
 
 class SignupScreen extends StatefulWidget {
-  const SignupScreen({super.key});
+  const SignupScreen({super.key, required this.authApi});
+  final AuthApi authApi;
   @override
   State<SignupScreen> createState() => _SignupScreenState();
 }
@@ -11,39 +14,51 @@ class SignupScreen extends StatefulWidget {
 class _SignupScreenState extends State<SignupScreen> {
   final form = GlobalKey<FormState>();
   final name = TextEditingController();
-  final studentId = TextEditingController();
-  final loginId = TextEditingController();
+  final studentNumber = TextEditingController();
+  final phone = TextEditingController();
   final password = TextEditingController();
   final confirm = TextEditingController();
 
   @override
   void dispose() {
-    for (final controller in [name, studentId, loginId, password, confirm]) {
+    for (final controller in [name, studentNumber, phone, password, confirm]) {
       controller.dispose();
     }
     super.dispose();
   }
 
+  bool isSubmitting = false;
+
   Future<void> submit() async {
+    if (isSubmitting) return;
     if (!form.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
-    final complete = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('회원가입 입력 확인 완료'),
-        content: const Text(
-          '입력 형식을 확인했습니다.\n서버 연결 전이므로 실제 계정은 생성되지 않습니다. 아이디·학번 중복 확인과 가입 처리는 API 연결 후 제공됩니다.\n\n가입 계정은 학생 권한이며 관리자 권한은 별도로 지정합니다.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('로그인 화면으로'),
-          ),
-        ],
-      ),
-    );
-    if (!mounted || complete != true) return;
-    Navigator.pop(context);
+    setState(() => isSubmitting = true);
+    try {
+      await widget.authApi.signUp(
+        password: password.text,
+        displayName: name.text.trim(),
+        studentNumber: studentNumber.text.trim(),
+        phoneNumber: phone.text,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('회원가입이 완료되었습니다. 로그인해 주세요.')));
+      Navigator.pop(context);
+    } on AuthApiException catch (exception) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(exception.message)));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('서버에 연결하지 못했습니다.')));
+      }
+    } finally {
+      if (mounted) setState(() => isSubmitting = false);
+    }
   }
 
   @override
@@ -58,13 +73,6 @@ class _SignupScreenState extends State<SignupScreen> {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                Text(
-                  '학생 계정 만들기',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 8),
-                const Text('회원가입 화면 미리보기입니다. 입력한 정보는 서버에 전송하거나 저장하지 않습니다.'),
-                const SizedBox(height: 20),
                 TextFormField(
                   key: const Key('signup-name'),
                   controller: name,
@@ -77,32 +85,38 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
-                  key: const Key('signup-student-id'),
-                  controller: studentId,
+                  key: const Key('signup-student-number'),
+                  controller: studentNumber,
                   keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   textInputAction: TextInputAction.next,
                   maxLength: 12,
-                  decoration: const InputDecoration(labelText: '학번'),
+                  decoration: const InputDecoration(
+                    labelText: '학번',
+                    helperText: '숫자 6~12자리',
+                  ),
                   validator: (value) =>
-                      !RegExp(r'^\d{6,12}$').hasMatch(value?.trim() ?? '')
+                      !RegExp(r'^[0-9]{6,12}$').hasMatch(value?.trim() ?? '')
                       ? '학번을 숫자 6~12자리로 입력해 주세요.'
                       : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
-                  key: const Key('signup-login-id'),
-                  controller: loginId,
+                  key: const Key('signup-phone'),
+                  controller: phone,
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   textInputAction: TextInputAction.next,
-                  maxLength: 20,
+                  maxLength: 11,
+                  autofillHints: const [AutofillHints.telephoneNumberNational],
                   decoration: const InputDecoration(
-                    labelText: '아이디',
-                    helperText: '영문·숫자·밑줄 4~20자. 중복 확인은 서버 연결 후 진행합니다.',
+                    labelText: '전화번호',
+                    helperText: '휴대전화번호를 숫자만 입력해 주세요.',
                   ),
                   validator: (value) =>
-                      !RegExp(r'^[a-zA-Z0-9_]{4,20}$')
-                          .hasMatch(value?.trim() ?? '')
-                      ? '아이디 형식을 확인해 주세요.'
-                      : null,
+                      RegExp(r'^01[016789][0-9]{7,8}$').hasMatch(value ?? '')
+                      ? null
+                      : '휴대전화번호를 확인해 주세요.',
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -135,8 +149,9 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
                 const SizedBox(height: 20),
                 FilledButton(
-                  onPressed: submit,
-                  child: const Text('회원가입 입력 확인'),
+                  key: const Key('signup-submit'),
+                  onPressed: isSubmitting ? null : submit,
+                  child: Text(isSubmitting ? '가입 처리 중...' : '회원가입'),
                 ),
                 const SizedBox(height: 8),
                 TextButton(
@@ -189,11 +204,6 @@ class UsageGuideScreen extends StatelessWidget {
           Icons.campaign_outlined,
           '공지 확인',
           '학과 운영 변경과 물품 이용 안내는 공지사항에서 확인해 주세요.',
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          '현재 로그인·공지 관리·대여 신청·반납 처리는 임시 기능입니다. 실제 운영 안내는 학과 공지를 기준으로 확인해 주세요.',
-          style: TextStyle(fontSize: 12),
         ),
       ],
     ),

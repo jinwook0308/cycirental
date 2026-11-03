@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'demo_auth.dart';
+import 'app_user.dart';
 import 'notice_store.dart';
 
 String noticeDate(DateTime date) =>
@@ -109,9 +109,7 @@ class AdminNoticesPanel extends StatelessWidget {
     if (!context.mounted || confirmed != true) return;
     final removed = store.delete(notice, actor: user);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(removed ? '공지를 삭제했습니다. (임시)' : '공지 상태와 권한을 확인해 주세요.'),
-      ),
+      SnackBar(content: Text(removed ? '공지를 삭제했습니다.' : '공지 상태와 권한을 확인해 주세요.')),
     );
   }
 
@@ -127,11 +125,6 @@ class AdminNoticesPanel extends StatelessWidget {
             onPressed: () => edit(context),
             icon: const Icon(Icons.add),
             label: const Text('공지 작성'),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            '공지 변경은 현재 앱에만 임시 반영됩니다. DB 저장은 API 연결 후 제공됩니다.',
-            style: TextStyle(fontSize: 12),
           ),
           const SizedBox(height: 12),
           if (store.notices.isEmpty)
@@ -264,11 +257,6 @@ class _NoticeEditorState extends State<NoticeEditor> {
                       ? '내용을 입력해 주세요.'
                       : null,
                 ),
-                const SizedBox(height: 12),
-                const Text(
-                  '현재는 임시 저장입니다. 실제 DB에 저장되지 않습니다.',
-                  style: TextStyle(fontSize: 12),
-                ),
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: () {
@@ -288,7 +276,7 @@ class _NoticeEditorState extends State<NoticeEditor> {
                       );
                     }
                   },
-                  child: const Text('임시 저장'),
+                  child: const Text('저장'),
                 ),
               ],
             ),

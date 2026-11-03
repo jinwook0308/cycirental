@@ -2,11 +2,21 @@ import 'package:flutter/material.dart';
 
 import 'item_model.dart';
 import 'item_store.dart';
-import 'demo_auth.dart';
+import 'app_user.dart';
 import 'notice_screens.dart';
+import 'auth_api.dart';
+import 'recovery_screens.dart';
 
 class AdminScreen extends StatefulWidget {
-  const AdminScreen({super.key, required this.store, required this.user});
+  const AdminScreen({
+    super.key,
+    required this.store,
+    required this.user,
+    this.authApi,
+    this.accessToken,
+  });
+  final AuthApi? authApi;
+  final String? accessToken;
   final AppUser user;
   final ItemStore store;
   @override
@@ -65,19 +75,31 @@ class _AdminScreenState extends State<AdminScreen> {
             body: const Center(child: Text('관리자 계정으로 로그인해 주세요.')),
           )
         : Scaffold(
-            appBar: AppBar(title: const Text('관리자 모드')),
+            appBar: AppBar(
+              title: const Text('관리자 모드'),
+              actions: [
+                IconButton(
+                  tooltip: '비밀번호 초기화 요청',
+                  icon: const Icon(Icons.lock_reset),
+                  onPressed: () {
+                    final api = widget.authApi;
+                    final token = widget.accessToken;
+                    if (api == null || token == null) {
+                      message('실제 관리자 계정으로 로그인해 주세요.');
+                      return;
+                    }
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            AdminRecoveryScreen(authApi: api, token: token),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
             body: Column(
               children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  child: const Text(
-                    '관리자 임시 기능 · 서버에 저장되지 않습니다.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12),
-                  ),
-                ),
                 Expanded(
                   child: switch (tab) {
                     0 => dashboard(),
@@ -159,9 +181,7 @@ class _AdminScreenState extends State<AdminScreen> {
         ),
         metric('반납 지연', '$overdue건', Icons.warning_amber_rounded, 3),
         const SizedBox(height: 16),
-        const Text(
-          '학생의 대여 신청을 승인하면 대여가 시작됩니다. 승인 전에는 물품을 이용할 수 없습니다.\n실제 서비스에서는 관리자 권한 인증과 서버 연결이 필요합니다.',
-        ),
+        const Text('학생의 대여 신청을 승인하면 대여가 시작됩니다. 승인 전에는 물품을 이용할 수 없습니다.'),
       ],
     );
   }
