@@ -1,3 +1,5 @@
+import 'test_auth_api.dart';
+
 import 'package:dept_rental/item_store.dart';
 import 'package:dept_rental/main.dart';
 import 'package:flutter/material.dart';
@@ -102,7 +104,8 @@ void main() {
     final items = source.items.toList();
     source.dispose();
     var now = dateOnly(DateTime.now());
-    final store = ItemStore(initialItems: items, now: () => now);
+    final store = ItemStore(initialItems: items, now: () => now)
+      ..currentUserId = 'user:1';
     addTearDown(store.dispose);
     store.requestRental(store.items.first, now.add(const Duration(days: 1)));
     final expired = store.requests.first;
@@ -128,8 +131,10 @@ void main() {
     final before = store.available(item);
     store.requestRental(item, DateTime.now().add(const Duration(days: 3)));
     store.approveRequest(store.requests.first);
-    await tester.pumpWidget(DeptRentalApp(store: store));
-    await login(tester, 'student', 'student1234');
+    await tester.pumpWidget(
+      DeptRentalApp(store: store, authApi: testAuthApi()),
+    );
+    await login(tester, '20260001', 'password123');
     await tester.tap(find.text('내 대여'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('대여 중 (1)'));
@@ -149,7 +154,7 @@ void main() {
     expect(store.available(item), before - 1);
     expect(store.history, isEmpty);
     await logout(tester);
-    await login(tester, 'admin', 'admin1234');
+    await login(tester, '20269999', 'password123');
     await tester.tap(
       find.descendant(
         of: find.byType(NavigationBar),
@@ -175,7 +180,7 @@ void main() {
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
     await logout(tester);
-    await login(tester, 'student', 'student1234');
+    await login(tester, '20260001', 'password123');
     await tester.tap(find.text('내 대여'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('대여 내역 (1)'));
@@ -190,8 +195,10 @@ void main() {
     addTearDown(store.dispose);
     final due = DateTime.now().add(const Duration(days: 3));
     store.requestRental(store.items.first, due);
-    await tester.pumpWidget(DeptRentalApp(store: store));
-    await login(tester, 'student', 'student1234');
+    await tester.pumpWidget(
+      DeptRentalApp(store: store, authApi: testAuthApi()),
+    );
+    await login(tester, '20260001', 'password123');
     await tester.tap(find.text('내 대여'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('신청 취소'));
@@ -210,7 +217,7 @@ void main() {
     store.requestRental(store.items.last, due);
     await tester.pumpAndSettle();
     await logout(tester);
-    await login(tester, 'admin', 'admin1234');
+    await login(tester, '20269999', 'password123');
     await tester.tap(
       find.descendant(
         of: find.byType(NavigationBar),
@@ -242,7 +249,7 @@ void main() {
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
     await logout(tester);
-    await login(tester, 'student', 'student1234');
+    await login(tester, '20260001', 'password123');
     await tester.tap(find.text('내 대여'));
     await tester.pumpAndSettle();
     expect(find.text('거절 사유: 학과 행사 사용 예정'), findsOneWidget);
@@ -254,11 +261,14 @@ void main() {
     final items = source.items.toList();
     source.dispose();
     var now = dateOnly(DateTime.now());
-    final store = ItemStore(initialItems: items, now: () => now);
+    final store = ItemStore(initialItems: items, now: () => now)
+      ..currentUserId = 'user:1';
     addTearDown(store.dispose);
     store.requestRental(items.first, now.add(const Duration(days: 1)));
-    await tester.pumpWidget(DeptRentalApp(store: store));
-    await login(tester, 'student', 'student1234');
+    await tester.pumpWidget(
+      DeptRentalApp(store: store, authApi: testAuthApi()),
+    );
+    await login(tester, '20260001', 'password123');
     await tester.tap(find.text('내 대여'));
     await tester.pumpAndSettle();
     expect(find.text('승인 대기'), findsOneWidget);

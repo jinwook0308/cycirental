@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'auth_api.dart';
 import 'item_store.dart';
@@ -13,14 +14,14 @@ class SignupScreen extends StatefulWidget {
 class _SignupScreenState extends State<SignupScreen> {
   final form = GlobalKey<FormState>();
   final name = TextEditingController();
-  final loginId = TextEditingController();
-  final email = TextEditingController();
+  final studentNumber = TextEditingController();
+  final phone = TextEditingController();
   final password = TextEditingController();
   final confirm = TextEditingController();
 
   @override
   void dispose() {
-    for (final controller in [name, loginId, email, password, confirm]) {
+    for (final controller in [name, studentNumber, phone, password, confirm]) {
       controller.dispose();
     }
     super.dispose();
@@ -29,15 +30,16 @@ class _SignupScreenState extends State<SignupScreen> {
   bool isSubmitting = false;
 
   Future<void> submit() async {
+    if (isSubmitting) return;
     if (!form.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
     setState(() => isSubmitting = true);
     try {
       await widget.authApi.signUp(
-        loginId: loginId.text.trim(),
         password: password.text,
         displayName: name.text.trim(),
-        email: email.text.trim(),
+        studentNumber: studentNumber.text.trim(),
+        phoneNumber: phone.text,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -71,13 +73,6 @@ class _SignupScreenState extends State<SignupScreen> {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                Text(
-                  '학생 계정 만들기',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 8),
-                const Text('입력한 정보는 서버에 전송되어 계정 생성에 사용됩니다.'),
-                const SizedBox(height: 20),
                 TextFormField(
                   key: const Key('signup-name'),
                   controller: name,
@@ -90,32 +85,19 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
-                  key: const Key('signup-login-id'),
-                  controller: loginId,
+                  key: const Key('signup-student-number'),
+                  controller: studentNumber,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   textInputAction: TextInputAction.next,
-                  maxLength: 50,
+                  maxLength: 12,
                   decoration: const InputDecoration(
-                    labelText: '아이디',
-                    helperText: '영문·숫자·밑줄·하이픈 4~50자',
+                    labelText: '학번',
+                    helperText: '숫자 6~12자리',
                   ),
                   validator: (value) =>
-                      !RegExp(r'^[a-zA-Z0-9_-]{4,50}$')
-                          .hasMatch(value?.trim() ?? '')
-                      ? '아이디 형식을 확인해 주세요.'
-                      : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  key: const Key('signup-email'),
-                  controller: email,
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  maxLength: 255,
-                  decoration: const InputDecoration(labelText: '이메일'),
-                  validator: (value) =>
-                      !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-                          .hasMatch(value?.trim() ?? '')
-                      ? '올바른 이메일을 입력해 주세요.'
+                      !RegExp(r'^[0-9]{6,12}$').hasMatch(value?.trim() ?? '')
+                      ? '학번을 숫자 6~12자리로 입력해 주세요.'
                       : null,
                 ),
                 const SizedBox(height: 12),
@@ -139,13 +121,31 @@ class _SignupScreenState extends State<SignupScreen> {
                   key: const Key('signup-confirm'),
                   controller: confirm,
                   obscureText: true,
-                  textInputAction: TextInputAction.done,
+                  textInputAction: TextInputAction.next,
                   decoration: const InputDecoration(labelText: '비밀번호 확인'),
-                  onFieldSubmitted: (_) => submit(),
                   validator: (value) =>
                       value == null || value.isEmpty || value != password.text
                       ? '비밀번호가 일치하지 않습니다.'
                       : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const Key('signup-phone'),
+                  controller: phone,
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  textInputAction: TextInputAction.done,
+                  maxLength: 11,
+                  autofillHints: const [AutofillHints.telephoneNumberNational],
+                  decoration: const InputDecoration(
+                    labelText: '전화번호',
+                    helperText: '휴대전화번호를 숫자만 입력해 주세요.',
+                  ),
+                  onFieldSubmitted: (_) => submit(),
+                  validator: (value) =>
+                      RegExp(r'^01[016789][0-9]{7,8}$').hasMatch(value ?? '')
+                      ? null
+                      : '휴대전화번호를 확인해 주세요.',
                 ),
                 const SizedBox(height: 20),
                 FilledButton(
@@ -204,11 +204,6 @@ class UsageGuideScreen extends StatelessWidget {
           Icons.campaign_outlined,
           '공지 확인',
           '학과 운영 변경과 물품 이용 안내는 공지사항에서 확인해 주세요.',
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          '현재 로그인·공지 관리·대여 신청·반납 처리는 임시 기능입니다. 실제 운영 안내는 학과 공지를 기준으로 확인해 주세요.',
-          style: TextStyle(fontSize: 12),
         ),
       ],
     ),

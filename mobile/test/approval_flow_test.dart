@@ -1,3 +1,5 @@
+import 'test_auth_api.dart';
+
 import 'package:dept_rental/item_model.dart';
 import 'package:dept_rental/item_store.dart';
 import 'package:dept_rental/main.dart';
@@ -69,9 +71,10 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final store = testItemStore();
     addTearDown(store.dispose);
-    await tester.pumpWidget(DeptRentalApp(store: store));
-    await tester.ensureVisible(find.text('로그인 · 데모 체험'));
-    await tester.tap(find.text('로그인 · 데모 체험'));
+    await tester.pumpWidget(
+      DeptRentalApp(store: store, authApi: testAuthApi()),
+    );
+    await loginTestStudent(tester);
     await tester.pumpAndSettle();
     await tester.tap(find.text('물품'));
     await tester.pumpAndSettle();
@@ -87,10 +90,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('로그아웃'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('login-id')), 'admin');
+    await tester.enterText(find.byKey(const Key('login-id')), '20269999');
     await tester.enterText(
       find.byKey(const Key('login-password')),
-      'admin1234',
+      'password123',
     );
     await tester.ensureVisible(find.text('로그인'));
     await tester.tap(find.text('로그인'));
@@ -101,7 +104,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('대여 승인'));
     await tester.pumpAndSettle();
-    expect(find.text('데모 학생 · demo_student'), findsOneWidget);
+    expect(find.text('테스트 학생 · user:1'), findsOneWidget);
     await tester.tap(find.text('승인'));
     await tester.pumpAndSettle();
     expect(find.text('승인 완료'), findsOneWidget);
@@ -111,8 +114,7 @@ void main() {
     await tester.ensureVisible(find.text('로그아웃'));
     await tester.tap(find.text('로그아웃'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('로그인 · 데모 체험'));
-    await tester.tap(find.text('로그인 · 데모 체험'));
+    await loginTestStudent(tester);
     await tester.pumpAndSettle();
     await tester.tap(find.text('내 대여'));
     await tester.pumpAndSettle();

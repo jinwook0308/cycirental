@@ -94,11 +94,11 @@ flutter pub get
 
 ### 3. 앱 실행
 
-Android Emulator 또는 Android 기기를 연결한 뒤 실행합니다.
+로컬 백엔드를 8080으로 실행한 뒤 Medium Phone으로 앱을 켭니다. 아래 스크립트는 해당 에뮬레이터를 자동 선택합니다.
 
 ```powershell
 flutter devices
-flutter run
+.\tool\run_medium_phone.cmd
 ```
 
 Android Studio를 사용하는 경우 저장소 전체가 아니라
@@ -107,6 +107,8 @@ Android Studio를 사용하는 경우 저장소 전체가 아니라
 ```text
 cycirental\mobile
 ```
+
+Android Studio의 Device Manager에서 Medium Phone을 켜고 상단 기기 선택을 Medium Phone으로 지정해 Run해도 됩니다. 기본 API 주소는 `http://10.0.2.2:8080`이며, 다른 주소가 필요할 때만 로컬 실행 설정을 사용합니다. 자세한 실행 방법은 [개발 안내](DEVELOPMENT.md#android-studio-medium-phone-실행)를 확인합니다.
 
 ---
 
@@ -121,6 +123,7 @@ flutter devices
 
 - [Windows 개발 환경 설정](SETUP_WINDOWS.md)
 - [Frontend 개발 안내](DEVELOPMENT.md)
+- [Git 업로드 전 준비](RELEASE_PREPARATION.md)
 
 ---
 
@@ -166,8 +169,18 @@ Android Emulator에서 `127.0.0.1` 또는 `localhost`는
 flutter run --dart-define=API_BASE_URL=http://서버주소:포트
 ```
 
-현재 실제 API 연동 범위는 물품 목록, 검색에 사용하는 물품 정보, 상세 정보와
-수량 표시입니다. 대여 신청과 반납 처리는 Backend API 구현 전까지 앱 내부의 임시 상태로 동작합니다.
+현재 로컬 코드에는 물품 조회와 회원가입·학번 로그인·로그아웃·관리자 비밀번호 초기화 API 연결이 구현돼 있습니다.
+대여·반납·물품 변경·공지는 메모리에서만 처리하며, 알림 설정 저장·푸시·관리자 웹은 미연결 상태입니다.
+서버에서 사용하려면 새 인증 코드와 원격 DB 변경을 함께 반영해야 합니다. 로컬 구현과 배포 완료를 구분합니다.
+
+Android Studio 실폰 테스트 시 `mobile` 프로젝트의 Run 설정 → Additional run args에 다음 값을 지정합니다.
+
+```text
+--dart-define-from-file=config/local-api.json
+```
+
+로컬 설정 파일 형식과 전체 절차는 [DEVELOPMENT.md](DEVELOPMENT.md#android-studio-실폰-테스트)를 확인합니다.
+APK 별도 설치 없이 휴대폰을 선택하고 Run으로 실행할 수 있습니다.
 
 실제 서버 및 Backend 실행 방법은 Backend 저장소의 README를 기준으로 합니다.
 
