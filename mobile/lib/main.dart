@@ -219,14 +219,14 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final id = TextEditingController();
+  final studentNumber = TextEditingController();
   final password = TextEditingController();
   String? error;
   bool isSubmitting = false;
 
   @override
   void dispose() {
-    id.dispose();
+    studentNumber.dispose();
     password.dispose();
     super.dispose();
   }
@@ -238,7 +238,10 @@ class _LoginScreenState extends State<LoginScreen> {
       isSubmitting = true;
     });
     try {
-      final session = await widget.authApi.login(id.text.trim(), password.text);
+      final session = await widget.authApi.login(
+        studentNumber.text.trim(),
+        password.text,
+      );
       if (!mounted) return;
       widget.onEnter(
         AppUser(
@@ -322,7 +325,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextField(
                         key: const Key('login-id'),
                         keyboardType: TextInputType.number,
-                        controller: id,
+                        controller: studentNumber,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.username],
                         decoration: const InputDecoration(
                           hintText: '학번',
                           prefixIcon: Icon(
@@ -336,6 +341,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         key: const Key('login-password'),
                         controller: password,
                         obscureText: true,
+                        textInputAction: TextInputAction.done,
+                        autofillHints: const [AutofillHints.password],
                         onSubmitted: (_) => signIn(),
                         decoration: const InputDecoration(
                           hintText: '비밀번호',

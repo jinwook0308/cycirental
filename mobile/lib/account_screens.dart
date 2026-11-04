@@ -102,24 +102,6 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
-                  key: const Key('signup-phone'),
-                  controller: phone,
-                  keyboardType: TextInputType.phone,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  textInputAction: TextInputAction.next,
-                  maxLength: 11,
-                  autofillHints: const [AutofillHints.telephoneNumberNational],
-                  decoration: const InputDecoration(
-                    labelText: '전화번호',
-                    helperText: '휴대전화번호를 숫자만 입력해 주세요.',
-                  ),
-                  validator: (value) =>
-                      RegExp(r'^01[016789][0-9]{7,8}$').hasMatch(value ?? '')
-                      ? null
-                      : '휴대전화번호를 확인해 주세요.',
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
                   key: const Key('signup-password'),
                   controller: password,
                   obscureText: true,
@@ -139,13 +121,31 @@ class _SignupScreenState extends State<SignupScreen> {
                   key: const Key('signup-confirm'),
                   controller: confirm,
                   obscureText: true,
-                  textInputAction: TextInputAction.done,
+                  textInputAction: TextInputAction.next,
                   decoration: const InputDecoration(labelText: '비밀번호 확인'),
-                  onFieldSubmitted: (_) => submit(),
                   validator: (value) =>
                       value == null || value.isEmpty || value != password.text
                       ? '비밀번호가 일치하지 않습니다.'
                       : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const Key('signup-phone'),
+                  controller: phone,
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  textInputAction: TextInputAction.done,
+                  maxLength: 11,
+                  autofillHints: const [AutofillHints.telephoneNumberNational],
+                  decoration: const InputDecoration(
+                    labelText: '전화번호',
+                    helperText: '휴대전화번호를 숫자만 입력해 주세요.',
+                  ),
+                  onFieldSubmitted: (_) => submit(),
+                  validator: (value) =>
+                      RegExp(r'^01[016789][0-9]{7,8}$').hasMatch(value ?? '')
+                      ? null
+                      : '휴대전화번호를 확인해 주세요.',
                 ),
                 const SizedBox(height: 20),
                 FilledButton(
