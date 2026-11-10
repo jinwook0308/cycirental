@@ -68,9 +68,9 @@ class AuthApi {
     'phoneNumber': phoneNumber,
   }, expectedStatus: 201);
 
-  Future<AuthSession> login(String loginId, String password) async {
+  Future<AuthSession> login(String studentNumber, String password) async {
     final response = await _request('/api/auth/login', {
-      'studentNumber': loginId,
+      'studentNumber': studentNumber,
       'password': password,
     });
     if (response.statusCode != 200) throw AuthApiException(_message(response));

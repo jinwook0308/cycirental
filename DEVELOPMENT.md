@@ -1,6 +1,6 @@
 # CYCIRENTAL Frontend 개발 안내
 
-Flutter 프로젝트는 `mobile/`입니다. Android Studio 실폰 테스트를 기본 작업 방식으로 사용합니다.
+Flutter 프로젝트는 `mobile/`입니다. 기본 실행 기기는 Android Studio의 **Medium Phone** 에뮬레이터입니다.
 Windows 도구 설치는 [SETUP_WINDOWS.md](SETUP_WINDOWS.md), 공통 협업 규칙은 [CONTRIBUTING.md](CONTRIBUTING.md)를 확인합니다.
 백엔드와 DB 운영은 [백엔드 저장소](https://github.com/cycirental-team/cycirental-backend)의 문서를 기준으로 합니다.
 
@@ -20,7 +20,28 @@ Windows 도구 설치는 [SETUP_WINDOWS.md](SETUP_WINDOWS.md), 공통 협업 규
 
 화면·API 코드 구현 완료가 원격 DB 적용이나 배포 완료를 뜻하지 않습니다. 서로 다른 기기의 대여·반납·공지 변경은 아직 공유되지 않습니다.
 
-## Android Studio 실폰 테스트
+## Android Studio Medium Phone 실행
+
+1. IntelliJ에서 백엔드를 실행합니다. 기본 주소는 `http://127.0.0.1:8080`이며 `/api/health`가 응답하는지 확인합니다.
+2. Android Studio에서 저장소의 `mobile` 폴더를 엽니다.
+3. Device Manager에서 **Medium Phone**을 켭니다. 상단 Flutter 기기 선택에서도 Medium Phone을 선택하고 `lib/main.dart`를 Run합니다.
+4. 기본 테스트에서는 Additional run args의 이전 `API_BASE_URL` / `--dart-define-from-file` 설정을 비워둡니다. 공용 기본값 `http://10.0.2.2:8080`이 적용됩니다.
+
+Windows나 Chrome 선택은 Android 에뮬레이터 실행이 아닙니다. `10.0.2.2`는 에뮬레이터가 개발 PC에 접근하는 주소이며, 다른 PC의 배포 서버를 의미하지 않습니다. 포트가 `8081`인 서버를 시험하려면 실제 서버 위치와 포트를 모두 지정합니다.
+
+기기 선택을 자동으로 고정하려면 Android Studio의 Terminal에서 `mobile` 기준으로 실행합니다.
+
+```powershell
+.\tool\run_medium_phone.cmd
+```
+
+스크립트는 `medium_phone` AVD를 켜고 부팅을 기다린 뒤 해당 에뮬레이터의 기기 ID로 Flutter를 실행합니다. Medium Phone을 찾지 못하면 오류를 표시하며 Windows나 웹을 자동 선택하지 않습니다. AVD ID가 다른 팀원은 `flutter emulators`로 확인한 뒤 `-EmulatorId 실제ID`를 전달합니다.
+
+CMD 진입점은 이 실행 프로세스에만 PowerShell 실행 정책을 적용하므로 PC의 전역 정책을 바꾸지 않습니다. 다른 서버를 일시 시험할 때는 `.\tool\run_medium_phone.cmd -ApiBaseUrl http://서버주소:포트`를 사용하며 코드 기본값은 그대로 유지됩니다.
+
+`Missing system image` 또는 `Cannot find AVD system path`가 나오면 Device Manager에서 Medium Phone의 시스템 이미지를 설치된 Android 이미지로 맞춥니다. 시스템 이미지가 없으면 SDK Manager에서 먼저 다운로드합니다. API 코드나 서버 포트 변경으로 해결되는 오류가 아닙니다.
+
+## 필요한 경우에만 로컬 주소 변경 / 실폰 테스트
 
 1. 저장소의 `mobile` 폴더를 Flutter 프로젝트로 엽니다.
 2. `mobile/config/local-api.json`을 생성합니다. 실제 서버 주소는 이 로컬 파일에만 기록합니다.
@@ -49,7 +70,7 @@ flutter run --dart-define-from-file=config/local-api.json
 
 ## 로그인·회원가입·초기화
 
-회원가입은 이름 / 학번 / 전화번호 / 비밀번호 / 비밀번호 확인을 입력합니다. 요청에는 확인용 비밀번호를 보내지 않습니다.
+회원가입은 이름 / 학번 / 비밀번호 / 비밀번호 확인 / 전화번호 순으로 입력합니다. 요청에는 확인용 비밀번호를 보내지 않습니다. 마지막 전화번호 입력란의 완료 키로도 가입할 수 있습니다.
 이름은 2~30자, 일반 학번은 숫자 6~12자리, 비밀번호는 8~64자입니다. 전화번호는 국내 휴대전화번호를 숫자 10~11자리로 받습니다. 학번과 전화번호는 앞자리 0을 보존하는 문자열입니다.
 학번을 로그인 아이디로 사용하며 별도 아이디·이메일 입력과 아이디 찾기는 제거했습니다. 새 계정은 학생 권한으로만 생성됩니다.
 예약 관리자 학번 `001`은 로그인·초기화 요청에서만 예외로 허용합니다. 일반 회원가입으로 만들 수 없고, DB의 관리자 계정과 서버 인증 성공 응답이 필요합니다. 앱에 고정 로그인 우회는 없습니다.
@@ -93,6 +114,24 @@ flutter analyze
 flutter test --concurrency=1
 ```
 
+### Medium Phone + 실제 로컬 백엔드 통합 검사
+
+이 검사는 가짜 HTTP 응답 대신 실제 앱 화면에서 가입·학번 로그인·물품 조회·로그아웃을 확인합니다. 시험 계정을 만들기 때문에 원격 MariaDB 대신 별도의 일회용 H2 서버를 사용합니다.
+
+백엔드 폴더에서 별도 Terminal로 실행합니다. 평소 8080 서버를 중단할 필요는 없습니다.
+
+```powershell
+.\mvnw.cmd spring-boot:run '-Dspring-boot.run.arguments=--spring.profiles.active=default --server.port=18080 --spring.datasource.url=jdbc:h2:mem:emulator_test;MODE=MariaDB;DB_CLOSE_DELAY=-1'
+```
+
+Medium Phone을 켜고 `flutter devices`의 실제 에뮬레이터 ID를 사용합니다. 아래 ID는 예시입니다.
+
+```powershell
+flutter test integration_test/auth_backend_test.dart -d emulator-5554 --dart-define=API_BASE_URL=http://10.0.2.2:18080 --dart-define=RUN_BACKEND_INTEGRATION_TESTS=true
+```
+
+시험용 주소는 이 명령의 빌드에만 적용되며 공용 기본값은 8080입니다. 검사 후 위의 일반 실행 스크립트로 다시 Run하면 기본 주소가 적용됩니다. 검사는 명시적으로 활성화하지 않으면 건너뛰고, 다른 호스트·포트이면 실패합니다. H2 서버를 종료하면 시험 계정이 사라집니다.
+
 별도 빌드 검사가 필요할 때만 다음 명령을 사용합니다.
 
 ```powershell
@@ -100,6 +139,8 @@ flutter build apk --debug --dart-define-from-file=config/local-api.json
 ```
 
 2026-11-03 기준 로컬 검증 기록: Flutter 정적 검사 통과, 전체 테스트 43개 통과, Android 디버그 APK 빌드 성공. 원격 DB·새 백엔드 배포 후 실폰 검증은 별도로 필요합니다.
+
+2026-11-04 추가 검증: Flutter 정적 검사와 전체 테스트 45개 통과. Android 36 Medium Phone에서 별도 H2 백엔드에 실제 가입·학번 로그인·물품 조회·로그아웃하는 통합 검사 1개와 Android 디버그 빌드를 확인했습니다. 이 결과는 로컬 에뮬레이터 검증이며 원격 MariaDB 변경·운영 배포 검증을 대신하지 않습니다.
 
 ## Git과 배포 구분
 

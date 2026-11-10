@@ -94,11 +94,11 @@ flutter pub get
 
 ### 3. 앱 실행
 
-Android Emulator 또는 Android 기기를 연결한 뒤 실행합니다.
+로컬 백엔드를 8080으로 실행한 뒤 Medium Phone으로 앱을 켭니다. 아래 스크립트는 해당 에뮬레이터를 자동 선택합니다.
 
 ```powershell
 flutter devices
-flutter run
+.\tool\run_medium_phone.cmd
 ```
 
 Android Studio를 사용하는 경우 저장소 전체가 아니라
@@ -107,6 +107,8 @@ Android Studio를 사용하는 경우 저장소 전체가 아니라
 ```text
 cycirental\mobile
 ```
+
+Android Studio의 Device Manager에서 Medium Phone을 켜고 상단 기기 선택을 Medium Phone으로 지정해 Run해도 됩니다. 기본 API 주소는 `http://10.0.2.2:8080`이며, 다른 주소가 필요할 때만 로컬 실행 설정을 사용합니다. 자세한 실행 방법은 [개발 안내](DEVELOPMENT.md#android-studio-medium-phone-실행)를 확인합니다.
 
 ---
 

@@ -15,7 +15,7 @@
 | 관리자 거절 | POST /api/admin/password-reset-requests/{id}/reject | Bearer → 200 |
 | 비밀번호 변경 | POST /api/auth/password/change | Bearer + currentPassword, newPassword → 새 사용자·토큰 → 200 |
 
-회원가입은 이름 / 학번 / 전화번호 / 비밀번호 / 비밀번호 확인을 입력합니다. 요청에는 확인용 비밀번호를 보내지 않습니다.
+회원가입은 이름 / 학번 / 비밀번호 / 비밀번호 확인 / 전화번호 순으로 입력합니다. 요청에는 확인용 비밀번호를 보내지 않습니다.
 이름은 2~30자, 일반 학번은 숫자 6~12자리, 비밀번호는 8~64자입니다. 전화번호는 국내 휴대전화번호를 숫자 10~11자리로 받습니다. 학번과 전화번호는 앞자리 0을 보존하는 문자열입니다.
 학번을 로그인 아이디로 사용하며 별도 아이디·이메일 입력과 아이디 찾기는 제거했습니다. 새 계정은 학생 권한으로만 생성됩니다.
 예약 관리자 학번 `001`은 로그인·초기화 요청에서만 예외로 허용합니다. 일반 회원가입으로 만들 수 없고, DB의 관리자 계정과 서버 인증 성공 응답이 필요합니다. 앱에 고정 로그인 우회는 없습니다.
@@ -29,6 +29,7 @@
 로그인·비밀번호 변경 응답은 userId, loginId, displayName, accessToken, tokenType, isAdmin, studentNumber, mustChangePassword를 포함합니다.
 앱은 userId를 로컬 대여 소유자 구분에 사용하고 isAdmin으로 관리자 메뉴를 결정합니다. 관리자 초기화 API는 서버에서 토큰·만료·DB 권한을 확인합니다.
 전화번호는 가입 요청의 phoneNumber로 전달하며 현재 로그인 응답에는 포함하지 않습니다. 번호 인증·문자 발송·전화번호 수정 API는 미구현입니다.
+`displayName`은 API 필드명이며 백엔드의 `User.displayName`을 통해 기존 DB `users.user_name`에 저장합니다. 이름 필드를 맞추려고 DB에 `displayName` 컬럼을 새로 만들거나 기존 컬럼을 삭제하지 않습니다.
 400은 입력 오류, 401은 인증 실패·만료, 403은 권한 부족, 409는 중복·이미 처리된 요청입니다. 가능한 경우 서버의 detail을 표시합니다.
 
 연결 지점: `mobile/lib/auth_api.dart`, `account_screens.dart`, `recovery_screens.dart`, `main.dart`.

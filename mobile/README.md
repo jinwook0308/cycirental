@@ -1,8 +1,20 @@
 # CYCIRENTAL 모바일 앱
 
-Flutter / Material 3 기반 Android 앱입니다. Android Studio에서 이 `mobile` 폴더를 열고 연결된 휴대폰으로 Run합니다.
+Flutter / Material 3 기반 Android 앱입니다. Android Studio에서 이 `mobile` 폴더를 열고 Medium Phone 에뮬레이터로 Run합니다.
 
 ## 실행 설정
+
+기본 실행에서는 로컬 백엔드를 8080으로 켜고, Device Manager와 상단 기기 선택에서 **Medium Phone**을 선택합니다. API 주소는 `http://10.0.2.2:8080`을 그대로 사용하며 별도 설정 파일은 필요하지 않습니다.
+
+Android Studio Terminal에서 Medium Phone을 자동 선택하려면:
+
+```powershell
+.\tool\run_medium_phone.cmd
+```
+
+회원가입은 이름·학번·비밀번호·비밀번호 확인·전화번호, 로그인은 학번·비밀번호를 입력합니다. 별도 아이디·이메일은 보내지 않습니다.
+
+### 다른 서버가 필요할 때만
 
 `config/local-api.json`을 로컬에 생성합니다. 파일은 Git에서 제외됩니다.
 
