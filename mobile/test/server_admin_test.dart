@@ -1,4 +1,5 @@
 import 'package:dept_rental/auth_api.dart';
+import 'package:dept_rental/admin_screen.dart';
 import 'package:dept_rental/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -65,7 +66,7 @@ void main() {
     );
   });
 
-  testWidgets('서버 관리자 응답으로 메뉴를 표시하고 실제 이름을 신청에 전달한다', (tester) async {
+  testWidgets('서버 관리자 응답으로 학생 화면 없이 관리자 홈에 진입한다', (tester) async {
     final api = AuthApi(
       client: MockClient((request) async {
         if (request.url.path.endsWith('/logout')) return http.Response('', 204);
@@ -89,18 +90,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(store.currentUserId, 'user:9');
     expect(store.currentUserName, 'Server Admin');
-    expect(
-      store.requestRental(
-        store.items.first,
-        DateTime.now().add(const Duration(days: 3)),
-      ),
-      isTrue,
-    );
-    expect(store.requests.first.student, 'Server Admin');
-    await tester.tap(find.text('설정'));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('관리자'));
-    expect(find.text('관리자'), findsOneWidget);
+    expect(find.byType(AdminScreen), findsOneWidget);
+    expect(find.byType(AppShell), findsNothing);
+    expect(find.text('내 대여'), findsNothing);
+    expect(find.text('CyciRental'), findsOneWidget);
     await tester.ensureVisible(find.text('로그아웃'));
     await tester.tap(find.text('로그아웃'));
     await tester.pumpAndSettle();

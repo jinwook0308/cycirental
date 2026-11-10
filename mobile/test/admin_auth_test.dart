@@ -73,6 +73,57 @@ void main() {
     expect(store.approveRequest(expired), isFalse);
   });
 
+  testWidgets('관리자 홈에서 신청을 승인하고 계정 관리에 접근한다', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final store = testItemStore();
+    final api = testAuthApi();
+    addTearDown(store.dispose);
+    addTearDown(api.close);
+    seedTestRequests(store);
+    final pendingBefore = store.pendingRequests.length;
+    await tester.pumpWidget(DeptRentalApp(store: store, authApi: api));
+    await tester.enterText(find.byKey(const Key('login-id')), '20269999');
+    await tester.enterText(
+      find.byKey(const Key('login-password')),
+      'password123',
+    );
+    await tester.ensureVisible(find.text('로그인'));
+    await tester.tap(find.text('로그인'));
+    await tester.pumpAndSettle();
+    final approveButton = find.byKey(
+      ValueKey(
+        'dashboard-approve-${store.pendingRequests.first.studentId}-${store.pendingRequests.first.item.id}',
+      ),
+    );
+    await tester.scrollUntilVisible(
+      approveButton,
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(approveButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('승인 확정'));
+    await tester.pumpAndSettle();
+    expect(store.pendingRequests.length, pendingBefore - 1);
+    expect(store.allActiveRentals.length, 1);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('admin-account-support')),
+      160,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('계정 지원'));
+    await tester.pumpAndSettle();
+    expect(find.text('비밀번호 초기화 요청'), findsOneWidget);
+    expect(find.text('테스트 관리자'), findsOneWidget);
+    expect(find.byType(AppShell, skipOffstage: false), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   test('API 다시 조회해도 로컬 물품 수정과 등록이 유지된다', () async {
     final api = ItemApi(
       client: MockClient(
@@ -177,19 +228,15 @@ void main() {
     await tester.ensureVisible(find.text('로그인'));
     await tester.tap(find.text('로그인'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('프로필 보기'));
-    await tester.pumpAndSettle();
-    expect(find.text('테스트 관리자'), findsOneWidget);
-    await tester.tap(find.byType(BackButton));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('설정'));
-    await tester.pumpAndSettle();
+    expect(find.byType(AdminScreen), findsOneWidget);
+    expect(find.byType(AppShell), findsNothing);
+    expect(find.text('내 대여'), findsNothing);
     seedTestRequests(store);
-    await tester.tap(find.text('관리자'));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('대여 승인'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('승인').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('승인 확정'));
     await tester.pumpAndSettle();
     expect(find.text('승인 완료'), findsOneWidget);
     final approvedRental = store.allActiveRentals.first;
@@ -208,7 +255,12 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(store.allActiveRentals, isEmpty);
-    await tester.tap(find.text('물품 관리'));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text('물품 관리'),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('4090본체 수정').first);
     await tester.pumpAndSettle();
@@ -232,8 +284,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(store.items.last.name, '데모 노트북');
     expect(tester.takeException(), isNull);
-    await tester.tap(find.byType(BackButton));
-    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('로그아웃'));
     await tester.tap(find.text('로그아웃'));
     await tester.pumpAndSettle();
