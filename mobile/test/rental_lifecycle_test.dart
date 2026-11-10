@@ -16,10 +16,15 @@ Future<void> login(WidgetTester tester, String id, String password) async {
 }
 
 Future<void> logout(WidgetTester tester) async {
-  await tester.tap(
-    find.descendant(of: find.byType(NavigationBar), matching: find.text('설정')),
-  );
-  await tester.pumpAndSettle();
+  if (find.text('설정').evaluate().isNotEmpty) {
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text('설정'),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
   await tester.ensureVisible(find.text('로그아웃'));
   await tester.tap(find.text('로그아웃'));
   await tester.pumpAndSettle();
@@ -155,15 +160,6 @@ void main() {
     expect(store.history, isEmpty);
     await logout(tester);
     await login(tester, '20269999', 'password123');
-    await tester.tap(
-      find.descendant(
-        of: find.byType(NavigationBar),
-        matching: find.text('설정'),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('관리자'));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('반납 관리'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('반납 확인'));
@@ -177,8 +173,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(store.allActiveRentals, isEmpty);
     expect(store.available(item), before);
-    await tester.tap(find.byType(BackButton));
-    await tester.pumpAndSettle();
     await logout(tester);
     await login(tester, '20260001', 'password123');
     await tester.tap(find.text('내 대여'));
@@ -218,15 +212,6 @@ void main() {
     await tester.pumpAndSettle();
     await logout(tester);
     await login(tester, '20269999', 'password123');
-    await tester.tap(
-      find.descendant(
-        of: find.byType(NavigationBar),
-        matching: find.text('설정'),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('관리자'));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('대여 승인'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('거절'));
@@ -246,8 +231,6 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(store.requests.first.rejectionReason, '학과 행사 사용 예정');
-    await tester.tap(find.byType(BackButton));
-    await tester.pumpAndSettle();
     await logout(tester);
     await login(tester, '20260001', 'password123');
     await tester.tap(find.text('내 대여'));

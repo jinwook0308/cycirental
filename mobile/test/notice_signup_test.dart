@@ -75,11 +75,6 @@ void main() {
     await tester.ensureVisible(find.text('로그인'));
     await tester.tap(find.text('로그인'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('설정'));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('관리자'));
-    await tester.tap(find.text('관리자'));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('공지 관리'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('공지 작성'));
@@ -101,22 +96,17 @@ void main() {
     await tester.ensureVisible(find.text('저장'));
     await tester.tap(find.text('저장'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(BackButton));
+    expect(store.noticeStore.featured!.title, '휴무 일정 변경');
+    await tester.tap(find.text('미리보기').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('홈'));
-    await tester.pumpAndSettle();
-    expect(find.text('[중요] 휴무 일정 변경'), findsOneWidget);
-    await tester.tap(find.text('[중요] 휴무 일정 변경'));
-    await tester.pumpAndSettle();
-    expect(find.text('휴무일에는 대여와 반납이 중단됩니다.'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('휴무일에는 대여와 반납이 중단됩니다.'),
+      ),
+      findsOneWidget,
+    );
     await tester.tap(find.text('닫기'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('설정'));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('관리자'));
-    await tester.tap(find.text('관리자'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('공지 관리'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(ValueKey('delete-notice-$id')));
     await tester.pumpAndSettle();

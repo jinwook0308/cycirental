@@ -6,6 +6,7 @@ import 'package:dept_rental/item_store.dart';
 import 'package:dept_rental/recovery_screens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -130,6 +131,22 @@ void main() {
 
   testWidgets('관리자 초기화 버튼은 본인 확인 체크 전 비활성화된다', (tester) async {
     bool approved = false;
+    String? copiedPassword;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copiedPassword = (call.arguments as Map)['text'] as String;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
     final api = AuthApi(
       client: MockClient((request) async {
         if (request.method == 'GET') {
@@ -172,6 +189,10 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('temporary-once'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('temporary-password-copy')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(copiedPassword, 'temporary-once');
     await tester.tap(find.text('전달할 비밀번호 확인 완료'));
     await tester.pumpAndSettle();
     expect(find.text('대기 중인 요청이 없습니다.'), findsOneWidget);

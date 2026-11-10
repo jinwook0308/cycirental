@@ -387,6 +387,22 @@ class _AdminRecoveryState extends State<AdminRecoveryScreen> {
                     Text('${row['displayName']} · ${row['studentNumber']}'),
                     const SizedBox(height: 12),
                     SelectableText(result['temporaryPassword'] as String),
+                    TextButton.icon(
+                      key: const Key('temporary-password-copy'),
+                      onPressed: () async {
+                        await Clipboard.setData(
+                          ClipboardData(
+                            text: result['temporaryPassword'] as String,
+                          ),
+                        );
+                        if (!mounted || !context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('임시 비밀번호를 복사했습니다.')),
+                        );
+                      },
+                      icon: const Icon(Icons.copy_rounded, size: 18),
+                      label: const Text('비밀번호 복사'),
+                    ),
                     const SizedBox(height: 12),
                     const Text(
                       '이 화면에서만 확인할 수 있습니다. 본인에게 직접 전달해 주세요.\n유효 시간: 24시간\n로그인 후 새 비밀번호 설정이 필요합니다.',
@@ -457,32 +473,33 @@ class _AdminRecoveryState extends State<AdminRecoveryScreen> {
               padding: EdgeInsets.all(24),
               child: Text('대기 중인 요청이 없습니다.'),
             ),
-          for (final row in rows)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('${row['displayName']} · ${row['studentNumber']}'),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 12,
-                      children: [
-                        FilledButton(
-                          onPressed: busy ? null : () => process(row, true),
-                          child: const Text('본인 확인 · 초기화'),
-                        ),
-                        TextButton(
-                          onPressed: busy ? null : () => process(row, false),
-                          child: const Text('거절'),
-                        ),
-                      ],
-                    ),
-                  ],
+          if (!busy && error == null)
+            for (final row in rows)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${row['displayName']} · ${row['studentNumber']}'),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 12,
+                        children: [
+                          FilledButton(
+                            onPressed: busy ? null : () => process(row, true),
+                            child: const Text('본인 확인 · 초기화'),
+                          ),
+                          TextButton(
+                            onPressed: busy ? null : () => process(row, false),
+                            child: const Text('거절'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
         ],
       ),
     ),

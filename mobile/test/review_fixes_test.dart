@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:dept_rental/auth_api.dart';
+import 'package:dept_rental/admin_screen.dart';
 import 'package:dept_rental/item_api.dart';
 import 'package:dept_rental/item_store.dart';
 import 'package:dept_rental/main.dart';
@@ -32,11 +33,14 @@ Map<String, Object> account(String token) => {
   'isAdmin': true,
 };
 Future<void> openRecovery(WidgetTester tester) async {
-  await tester.tap(find.text('설정'));
+  await tester.scrollUntilVisible(
+    find.byKey(const Key('admin-account-support')),
+    200,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.tap(find.byKey(const Key('admin-account-support')));
   await tester.pumpAndSettle();
-  await tester.tap(find.text('관리자'));
-  await tester.pumpAndSettle();
-  await tester.tap(find.byTooltip('비밀번호 초기화 요청'));
+  await tester.tap(find.text('비밀번호 초기화 요청'));
 }
 
 void main() {
@@ -86,12 +90,13 @@ void main() {
     expect(store.available(store.items.single), 2);
   });
   testWidgets('401 응답 시 관리자 경로를 닫고 사용자 정보를 비운다', (tester) async {
+    var recoveryQueries = 0;
     final api = AuthApi(
-      client: MockClient(
-        (r) async => r.url.path.endsWith('/login')
-            ? json(account('expired'))
-            : json({'detail': 'Session expired'}, 401),
-      ),
+      client: MockClient((r) async {
+        if (r.url.path.endsWith('/login')) return json(account('expired'));
+        if (r.method == 'GET' && recoveryQueries++ == 0) return json([]);
+        return json({'detail': 'Session expired'}, 401);
+      }),
     );
     final store = ItemStore(initialItems: const []);
     addTearDown(api.close);
@@ -115,6 +120,9 @@ void main() {
           return json(account('token-${++logins}'));
         }
         if (r.url.path.endsWith('/logout')) return http.Response('', 204);
+        if (r.headers['Authorization'] == 'Bearer token-2') {
+          return json([]);
+        }
         return pending.future;
       }),
     );
@@ -129,15 +137,14 @@ void main() {
     // Return from the loading screen without waiting for its API response.
     tester.state<NavigatorState>(find.byType(Navigator)).pop();
     await tester.pumpAndSettle();
-    tester.state<NavigatorState>(find.byType(Navigator)).pop();
-    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('로그아웃'));
     await tester.tap(find.text('로그아웃'));
     await tester.pumpAndSettle();
     await signIn(tester);
     pending.complete(json({'detail': 'Old session expired'}, 401));
     await tester.pumpAndSettle();
-    expect(find.byType(AppShell), findsOneWidget);
+    expect(find.byType(AdminScreen), findsOneWidget);
+    expect(find.byType(AppShell), findsNothing);
     expect(store.currentUserId, 'user:9');
     expect(tester.takeException(), isNull);
   });
@@ -155,8 +162,6 @@ void main() {
     addTearDown(store.dispose);
     await tester.pumpWidget(DeptRentalApp(store: store, authApi: api));
     await signIn(tester);
-    await tester.tap(find.text('설정'));
-    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('로그아웃'));
     await tester.tap(find.text('로그아웃'));
     await tester.pumpAndSettle();

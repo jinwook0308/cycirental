@@ -52,4 +52,5 @@ ItemStore testItemStore() =>
         ],
       )
       ..currentUserId = 'user:1'
-      ..currentUserName = '테스트 학생';
+      ..currentUserName = '테스트 학생'
+      ..currentUserStudentNumber = '20260001';
