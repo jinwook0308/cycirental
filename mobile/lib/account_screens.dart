@@ -73,6 +73,16 @@ class _SignupScreenState extends State<SignupScreen> {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
+                const Text(
+                  '학생 계정 만들기',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '이름과 학번으로 가입하고 학과 물품을 대여하세요.',
+                  style: TextStyle(fontSize: 13, height: 1.5),
+                ),
+                const SizedBox(height: 24),
                 TextFormField(
                   key: const Key('signup-name'),
                   controller: name,

@@ -36,6 +36,10 @@ AuthApi testAuthApi() => AuthApi(
         headers: {'content-type': 'application/json; charset=utf-8'},
       );
     }
+    if (request.method == 'GET' &&
+        request.url.path == '/api/admin/password-reset-requests') {
+      return http.Response('[]', 200);
+    }
     if (request.url.path == '/api/auth/logout') return http.Response('', 204);
     if (request.url.path == '/api/auth/signup') return http.Response('', 201);
     return http.Response('{"detail":"not found"}', 404);

@@ -27,7 +27,7 @@ class DemoRequest {
     this.studentNumber = '',
     required this.due,
     DateTime? requestedAt,
-  }) : requestedAt = dateOnly(requestedAt ?? DateTime.now());
+  }) : requestedAt = requestedAt ?? DateTime.now();
   final DateTime requestedAt;
   RentalItem item;
   final String student;

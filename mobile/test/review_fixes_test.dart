@@ -34,11 +34,13 @@ Map<String, Object> account(String token) => {
 };
 Future<void> openRecovery(WidgetTester tester) async {
   await tester.scrollUntilVisible(
-    find.byKey(const Key('admin-recovery-entry')),
+    find.byKey(const Key('admin-account-support')),
     200,
     scrollable: find.byType(Scrollable).first,
   );
-  await tester.tap(find.byKey(const Key('admin-recovery-entry')));
+  await tester.tap(find.byKey(const Key('admin-account-support')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('비밀번호 초기화 요청'));
 }
 
 void main() {
@@ -88,12 +90,13 @@ void main() {
     expect(store.available(store.items.single), 2);
   });
   testWidgets('401 응답 시 관리자 경로를 닫고 사용자 정보를 비운다', (tester) async {
+    var recoveryQueries = 0;
     final api = AuthApi(
-      client: MockClient(
-        (r) async => r.url.path.endsWith('/login')
-            ? json(account('expired'))
-            : json({'detail': 'Session expired'}, 401),
-      ),
+      client: MockClient((r) async {
+        if (r.url.path.endsWith('/login')) return json(account('expired'));
+        if (r.method == 'GET' && recoveryQueries++ == 0) return json([]);
+        return json({'detail': 'Session expired'}, 401);
+      }),
     );
     final store = ItemStore(initialItems: const []);
     addTearDown(api.close);
@@ -117,6 +120,9 @@ void main() {
           return json(account('token-${++logins}'));
         }
         if (r.url.path.endsWith('/logout')) return http.Response('', 204);
+        if (r.headers['Authorization'] == 'Bearer token-2') {
+          return json([]);
+        }
         return pending.future;
       }),
     );

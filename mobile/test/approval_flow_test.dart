@@ -103,6 +103,8 @@ void main() {
     expect(find.text('테스트 학생 · 20260001'), findsOneWidget);
     await tester.tap(find.text('승인'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('승인 확정'));
+    await tester.pumpAndSettle();
     expect(find.text('승인 완료'), findsOneWidget);
     expect(store.allActiveRentals.length, 1);
     expect(store.allActiveRentals.single.studentNumber, '20260001');

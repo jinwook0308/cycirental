@@ -93,13 +93,30 @@ void main() {
     await tester.ensureVisible(find.text('로그인'));
     await tester.tap(find.text('로그인'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('✓ 승인').first);
-    await tester.tap(find.text('✓ 승인').first);
+    final approveButton = find.byKey(
+      ValueKey(
+        'dashboard-approve-${store.pendingRequests.first.studentId}-${store.pendingRequests.first.item.id}',
+      ),
+    );
+    await tester.scrollUntilVisible(
+      approveButton,
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(approveButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('승인 확정'));
     await tester.pumpAndSettle();
     expect(store.pendingRequests.length, pendingBefore - 1);
     expect(store.allActiveRentals.length, 1);
-    await tester.ensureVisible(find.text('계정 관리'));
-    await tester.tap(find.text('계정 관리'));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('admin-account-support')),
+      160,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('계정 지원'));
     await tester.pumpAndSettle();
     expect(find.text('비밀번호 초기화 요청'), findsOneWidget);
     expect(find.text('테스트 관리자'), findsOneWidget);
@@ -219,6 +236,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('승인').first);
     await tester.pumpAndSettle();
+    await tester.tap(find.text('승인 확정'));
+    await tester.pumpAndSettle();
     expect(find.text('승인 완료'), findsOneWidget);
     final approvedRental = store.allActiveRentals.first;
     store.currentUserId = approvedRental.studentId;
@@ -236,7 +255,12 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(store.allActiveRentals, isEmpty);
-    await tester.tap(find.text('물품 관리'));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text('물품 관리'),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('4090본체 수정').first);
     await tester.pumpAndSettle();

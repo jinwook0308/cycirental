@@ -12,15 +12,16 @@ import 'notice_screens.dart';
 import 'account_screens.dart';
 import 'item_store.dart';
 import 'product_visual.dart';
+import 'student_dashboard.dart';
 
 void main() => runApp(const DeptRentalApp());
 
-const ink = Color(0xFF1D315B);
-const primaryBlue = Color(0xFF4C76D8);
+const ink = Color(0xFF17203E);
+const primaryBlue = Color(0xFF6654D9);
 const lilac = Color(0xFF6C71DC);
 const muted = Color(0xFF7182A1);
 const line = Color(0xFFDDE6F5);
-const page = Color(0xFFF9FBFF);
+const page = Color(0xFFFAF9FF);
 const ice = Color(0xFFE7F7FF);
 const blush = Color(0xFFFFEBEE);
 const danger = Color(0xFFE34D5D);
@@ -124,7 +125,7 @@ class _DeptRentalAppState extends State<DeptRentalApp>
   @override
   Widget build(BuildContext context) => MaterialApp(
     navigatorKey: _navigatorKey,
-    title: 'DeptRental',
+    title: 'CyciRental',
     debugShowCheckedModeBanner: false,
     locale: const Locale('ko'),
     supportedLocales: const [Locale('ko'), Locale('en')],
@@ -145,6 +146,7 @@ class _DeptRentalAppState extends State<DeptRentalApp>
         foregroundColor: ink,
         elevation: 0,
         titleTextStyle: TextStyle(
+          fontFamily: 'Roboto',
           color: ink,
           fontSize: 19,
           fontWeight: FontWeight.w800,
@@ -177,7 +179,7 @@ class _DeptRentalAppState extends State<DeptRentalApp>
       ),
       navigationBarTheme: const NavigationBarThemeData(
         backgroundColor: Colors.white,
-        indicatorColor: Color(0xFFE7EDFF),
+        indicatorColor: Color(0xFFE9E2FF),
         labelTextStyle: WidgetStatePropertyAll(
           TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: ink),
         ),
@@ -295,32 +297,32 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 28),
                       Center(
                         child: Container(
-                          width: 90,
-                          height: 90,
+                          width: 72,
+                          height: 72,
                           decoration: const BoxDecoration(
-                            color: Color(0xFFE9F0FF),
+                            color: Color(0xFFEEE9FF),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
-                            Icons.school_rounded,
-                            color: ink,
-                            size: 55,
+                            Icons.inventory_2_outlined,
+                            color: primaryBlue,
+                            size: 42,
                           ),
                         ),
                       ),
                       const SizedBox(height: 22),
                       const Text(
-                        '학과 대여 물품 관리 앱',
+                        '학과 물품을\n간편하게 대여하세요',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 25,
+                          fontSize: 22,
                           fontWeight: FontWeight.w800,
                           color: ink,
                         ),
                       ),
                       const SizedBox(height: 2),
                       const Text(
-                        'DeptRental',
+                        'CyciRental',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 25,
@@ -404,9 +406,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 24),
-                      const CampusArtwork(),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 28),
                     ],
                   ),
                 ),
@@ -437,7 +437,11 @@ class PrimaryAction extends StatelessWidget {
       foregroundColor: Colors.white,
       minimumSize: const Size.fromHeight(52),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+      textStyle: const TextStyle(
+        fontFamily: 'Roboto',
+        fontSize: 16,
+        fontWeight: FontWeight.w800,
+      ),
     ),
     child: Text(label),
   );
@@ -464,6 +468,29 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int tab = 0;
+  int rentalTab = 0;
+  int rentalRevision = 0;
+
+  void openRentals([int initialTab = 0]) => setState(() {
+    tab = 2;
+    rentalTab = initialTab;
+    rentalRevision++;
+  });
+
+  void openAlerts() {
+    final store = widget.store;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text('알림')),
+          body: AnimatedBuilder(
+            animation: store,
+            builder: (context, _) => AlertsScreen(store: store),
+          ),
+        ),
+      ),
+    );
+  }
 
   Future<void> openItem(RentalItem item) async {
     final booked = await Navigator.of(context).push<bool>(
@@ -472,7 +499,7 @@ class _AppShellState extends State<AppShell> {
       ),
     );
     if (!mounted || booked != true) return;
-    setState(() => tab = 2);
+    openRentals();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('신청이 접수됐습니다. 관리자 승인 후 이용할 수 있습니다.')),
     );
@@ -483,42 +510,56 @@ class _AppShellState extends State<AppShell> {
     animation: widget.store,
     builder: (context, _) => Scaffold(
       appBar: AppBar(
-        title: Text(['DeptRental', '물품 목록', '내 대여 현황', '알림', '설정'][tab]),
+        title: Text(
+          ['CyciRental', '물품 목록', '내 대여 현황', '설정'][tab],
+          style: const TextStyle(fontFamily: 'Roboto'),
+        ),
         actions: [
-          if (tab != 3)
-            IconButton(
-              tooltip: '알림 보기',
-              onPressed: () => setState(() => tab = 3),
-              icon: const Icon(Icons.notifications_none_rounded),
-            ),
+          IconButton(
+            tooltip: '알림 보기',
+            onPressed: openAlerts,
+            icon: const Icon(Icons.notifications_none_rounded),
+          ),
         ],
       ),
-      body: IndexedStack(
-        index: tab,
-        children: [
-          HomeScreen(
-            store: widget.store,
-            openItem: openItem,
-            openItems: () => setState(() => tab = 1),
-            openRentals: () => setState(() => tab = 2),
-            openAlerts: () => setState(() => tab = 3),
-            user: widget.user,
-          ),
-          ItemsScreen(store: widget.store, openItem: openItem),
-          RentalsScreen(store: widget.store),
-          AlertsScreen(store: widget.store),
-          SettingsScreen(
-            store: widget.store,
-            user: widget.user,
-            onLogout: widget.onLogout,
-            authApi: widget.authApi,
-            accessToken: widget.accessToken,
-          ),
-        ],
+      body: SafeArea(
+        child: IndexedStack(
+          index: tab,
+          children: [
+            HomeScreen(
+              store: widget.store,
+              openItem: openItem,
+              openItems: () => setState(() => tab = 1),
+              openRentals: openRentals,
+              onRentalTab: openRentals,
+              openAlerts: openAlerts,
+              user: widget.user,
+            ),
+            ItemsScreen(store: widget.store, openItem: openItem),
+            RentalsScreen(
+              key: ValueKey('student-rentals-$rentalTab-$rentalRevision'),
+              store: widget.store,
+              initialIndex: rentalTab,
+            ),
+            SettingsScreen(
+              store: widget.store,
+              user: widget.user,
+              onLogout: widget.onLogout,
+              authApi: widget.authApi,
+              accessToken: widget.accessToken,
+            ),
+          ],
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: tab,
-        onDestinationSelected: (index) => setState(() => tab = index),
+        onDestinationSelected: (index) {
+          if (index == 2) {
+            openRentals();
+          } else {
+            setState(() => tab = index);
+          }
+        },
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
@@ -534,11 +575,6 @@ class _AppShellState extends State<AppShell> {
             icon: Icon(Icons.assignment_outlined),
             selectedIcon: Icon(Icons.assignment_rounded),
             label: '내 대여',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.notifications_none_rounded),
-            selectedIcon: Icon(Icons.notifications_rounded),
-            label: '알림',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),
@@ -607,361 +643,30 @@ class HomeScreen extends StatelessWidget {
     required this.openItems,
     required this.openRentals,
     required this.openAlerts,
+    this.onRentalTab,
   });
-
   final AppUser user;
   final ItemStore store;
   final ValueChanged<RentalItem> openItem;
-  final VoidCallback openItems;
-  final VoidCallback openRentals;
-  final VoidCallback openAlerts;
+  final VoidCallback openItems, openRentals, openAlerts;
+  final ValueChanged<int>? onRentalTab;
 
   @override
-  Widget build(BuildContext context) {
-    final featured = store.noticeStore.featured;
-    final availableCount = store.items.fold<int>(
-      0,
-      (sum, item) => sum + store.available(item),
-    );
-    final dueSoon = store.activeRentals
-        .where(
-          (rental) =>
-              dateOnly(rental.due)
-                  .difference(dateOnly(DateTime.now()))
-                  .inDays <=
-              1,
-        )
-        .length;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(18, 20, 18, 28),
-      children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                '안녕하세요!\n좋은 하루 보내세요 :)',
-                style: TextStyle(
-                  color: ink,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  height: 1.28,
-                ),
-              ),
-            ),
-            IconButton.filledTonal(
-              tooltip: '프로필 보기',
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => ProfileScreen(user: user)),
-              ),
-              style: IconButton.styleFrom(
-                backgroundColor: const Color(0xFFE8EFFF),
-              ),
-              icon: const Icon(
-                Icons.person_outline_rounded,
-                color: primaryBlue,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        SectionHeading(
-          title: '공지사항',
-          action: '더보기',
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => NoticesScreen(store: store.noticeStore),
-            ),
-          ),
-        ),
-        if (featured == null)
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('등록된 공지사항이 없습니다.'),
-            ),
-          )
-        else
-          Card(
-            margin: EdgeInsets.zero,
-            child: ListTile(
-              dense: true,
-              leading: const Icon(
-                Icons.notifications_active_outlined,
-                color: primaryBlue,
-                size: 22,
-              ),
-              title: Text(
-                featured.displayTitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: ink, fontWeight: FontWeight.w700),
-              ),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => showNotice(context, featured),
-            ),
-          ),
-        const SizedBox(height: 14),
-        const _HomeBanner(),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            _StatTile(
-              icon: Icons.inventory_2_outlined,
-              label: '대여 가능한\n물품',
-              count: '$availableCount개',
-              tint: ice,
-              onTap: openItems,
-            ),
-            const SizedBox(width: 8),
-            _StatTile(
-              icon: Icons.assignment_outlined,
-              label: '내 대여\n현황',
-              count: '${store.activeRentals.length}개',
-              tint: const Color(0xFFEAEAFF),
-              onTap: openRentals,
-            ),
-            const SizedBox(width: 8),
-            _StatTile(
-              icon: Icons.notifications_none_rounded,
-              label: '읽지 않은\n알림',
-              count: '$dueSoon개',
-              tint: const Color(0xFFFFEEEA),
-              onTap: openAlerts,
-            ),
-          ],
-        ),
-        const SizedBox(height: 22),
-        SectionHeading(
-          title: '내 대여 일정',
-          action: '내역 보기',
-          onPressed: openRentals,
-        ),
-        const SizedBox(height: 10),
-        if (store.activeRentals.isNotEmpty)
-          InkWell(
-            onTap: openRentals,
-            borderRadius: BorderRadius.circular(17),
-            child: _ReminderBanner(rental: store.activeRentals.first),
-          ),
-        if (store.activeRentals.isEmpty)
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('대여 중인 물품이 없습니다.', style: TextStyle(color: muted)),
-            ),
-          ),
-        const SizedBox(height: 22),
-        SectionHeading(title: '추천 물품', action: '더보기', onPressed: openItems),
-        const SizedBox(height: 10),
-        if (store.isLoading && store.items.isEmpty)
-          const SizedBox(height: 160, child: _ItemsLoadingView())
-        else if (store.errorMessage != null && store.items.isEmpty)
-          SizedBox(height: 180, child: _ItemsErrorView(store: store))
-        else if (store.items.isEmpty)
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('등록된 물품이 없습니다.'),
-            ),
-          )
-        else
-          SizedBox(
-            height: 191,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: store.items.take(3).length,
-              separatorBuilder: (_, _) => const SizedBox(width: 9),
-              itemBuilder: (context, index) {
-                final item = store.items[index];
-                return SizedBox(
-                  width: 143,
-                  child: Card(
-                    margin: EdgeInsets.zero,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(17),
-                      onTap: () => openItem(item),
-                      child: Padding(
-                        padding: const EdgeInsets.all(9),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ProductVisual(item: item, width: 123, height: 104),
-                            const SizedBox(height: 8),
-                            Text(
-                              item.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: ink,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            Text(
-                              item.subtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: muted,
-                                fontSize: 11,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              store.available(item) > 0
-                                  ? '대여 가능 ${store.available(item)}${item.unit}'
-                                  : '현재 대여 불가',
-                              style: TextStyle(
-                                color: store.available(item) > 0
-                                    ? primaryBlue
-                                    : danger,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        const SizedBox(height: 22),
-      ],
-    );
-  }
-}
-
-class _HomeBanner extends StatelessWidget {
-  const _HomeBanner();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    height: 124,
-    clipBehavior: Clip.antiAlias,
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [Color(0xFFE8F4FF), Color(0xFFE8E9FF)],
-      ),
-      borderRadius: BorderRadius.circular(18),
-    ),
-    child: Stack(
-      children: [
-        Positioned(
-          right: -20,
-          top: -35,
-          child: Container(
-            width: 128,
-            height: 128,
-            decoration: const BoxDecoration(
-              color: Color(0x66FFFFFF),
-              shape: BoxShape.circle,
-            ),
-          ),
-        ),
-        const Positioned(
-          right: 14,
-          bottom: 5,
-          child: Icon(
-            Icons.groups_2_outlined,
-            color: Color(0xFF7997DD),
-            size: 96,
-          ),
-        ),
-        const Padding(
-          padding: EdgeInsets.all(17),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                '함께 쓰는 물품,',
-                style: TextStyle(
-                  color: ink,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              Text(
-                '더 스마트한 학과 생활',
-                style: TextStyle(
-                  color: ink,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              SizedBox(height: 6),
-              Text(
-                '– DeptRental –',
-                style: TextStyle(
-                  color: primaryBlue,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _StatTile extends StatelessWidget {
-  const _StatTile({
-    required this.icon,
-    required this.label,
-    required this.count,
-    required this.tint,
-    required this.onTap,
-  });
-  final IconData icon;
-  final String label;
-  final String count;
-  final Color tint;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Expanded(
-    child: Material(
-      color: tint,
-      borderRadius: BorderRadius.circular(13),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(13),
-        child: Container(
-          height: 112,
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: ink, size: 22),
-              const SizedBox(height: 3),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: ink,
-                  fontSize: 11,
-                  height: 1.15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                count,
-                style: const TextStyle(
-                  color: primaryBlue,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-        ),
+  Widget build(BuildContext context) => StudentDashboard(
+    user: user,
+    store: store,
+    onItem: openItem,
+    onItems: openItems,
+    onRentals: onRentalTab ?? (_) => openRentals(),
+    onProfile: () =>
+        Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => ProfileScreen(user: user))),
+    onNotices: () => Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => NoticesScreen(store: store.noticeStore),
       ),
     ),
+    onNotice: (notice) => showNotice(context, notice),
   );
 }
 
@@ -1010,156 +715,221 @@ class ItemsScreen extends StatefulWidget {
 }
 
 class _ItemsScreenState extends State<ItemsScreen> {
+  final search = TextEditingController();
   String query = '';
   String category = '전체';
   bool onlyAvailable = false;
 
   @override
+  void dispose() {
+    search.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final store = widget.store;
     final categories = [
       '전체',
-      ...widget.store.items.map((item) => item.category).toSet(),
+      ...store.items.map((item) => item.category).toSet(),
     ];
-    final visible = widget.store.items.where((item) {
-      final matchesText =
-          item.name.toLowerCase().contains(query.toLowerCase()) ||
-          item.subtitle.toLowerCase().contains(query.toLowerCase()) ||
-          item.category.toLowerCase().contains(query.toLowerCase());
-      return matchesText &&
-          (category == '전체' || item.category == category) &&
-          (!onlyAvailable || widget.store.available(item) > 0);
-    }).toList();
+    final selectedCategory = categories.contains(category) ? category : '전체';
+    final visible = store.items
+        .where(
+          (item) =>
+              '${item.name} ${item.category} ${item.location}'
+                  .toLowerCase()
+                  .contains(query.trim().toLowerCase()) &&
+              (selectedCategory == '전체' || item.category == selectedCategory) &&
+              (!onlyAvailable || store.available(item) > 0),
+        )
+        .toList();
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(17, 18, 17, 2),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  key: const Key('item-search'),
-                  onChanged: (text) => setState(() => query = text),
-                  decoration: const InputDecoration(
-                    hintText: '물품명으로 검색하세요...',
-                    prefixIcon: Icon(Icons.search_rounded, color: ink),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton.filledTonal(
-                tooltip: '대여 가능 물품만 보기',
-                onPressed: () => setState(() => onlyAvailable = !onlyAvailable),
-                icon: Icon(
-                  onlyAvailable
-                      ? Icons.filter_alt_rounded
-                      : Icons.filter_alt_outlined,
-                ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(
-          height: 57,
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 8),
-            scrollDirection: Axis.horizontal,
-            itemCount: categories.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 7),
-            itemBuilder: (context, index) => ChoiceChip(
-              label: Text(categories[index]),
-              selected: category == categories[index],
-              onSelected: (_) => setState(() => category = categories[index]),
-              selectedColor: const Color(0xFFE5EAFE),
-              side: const BorderSide(color: line),
-              labelStyle: TextStyle(
-                color: category == categories[index] ? primaryBlue : ink,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
+          child: TextField(
+            key: const Key('item-search'),
+            controller: search,
+            onChanged: (value) => setState(() => query = value),
+            decoration: InputDecoration(
+              hintText: '물품명·카테고리·보관 장소 검색',
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: query.isEmpty
+                  ? null
+                  : IconButton(
+                      key: const Key('item-search-clear'),
+                      tooltip: '검색어 지우기',
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () {
+                        search.clear();
+                        setState(() => query = '');
+                      },
+                    ),
             ),
           ),
         ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          child: Row(
+            children: [
+              Tooltip(
+                message: '대여 가능 물품만 보기',
+                child: FilterChip(
+                  key: const Key('student-available-only'),
+                  label: const Text('대여 가능만'),
+                  selected: onlyAvailable,
+                  onSelected: (value) => setState(() => onlyAvailable = value),
+                ),
+              ),
+              const SizedBox(width: 8),
+              for (final value in categories)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text(value),
+                    selected: selectedCategory == value,
+                    onSelected: (_) => setState(() => category = value),
+                  ),
+                ),
+            ],
+          ),
+        ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(19, 6, 19, 4),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 6),
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              '전체 ${visible.length}개 물품',
+              store.isLoading && store.items.isEmpty
+                  ? '물품 조회 중…'
+                  : store.errorMessage != null && store.items.isEmpty
+                  ? '물품 조회 실패'
+                  : '${visible.length}개 물품',
               style: const TextStyle(color: muted, fontSize: 12),
             ),
           ),
         ),
         Expanded(
-          child: widget.store.isLoading && widget.store.items.isEmpty
-              ? const _ItemsLoadingView()
-              : widget.store.errorMessage != null && widget.store.items.isEmpty
-              ? _ItemsErrorView(store: widget.store)
-              : visible.isEmpty
-              ? const Center(
-                  child: Text('검색 결과가 없습니다.', style: TextStyle(color: muted)),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(17, 7, 17, 22),
-                  itemCount: visible.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 9),
-                  itemBuilder: (context, index) {
-                    final item = visible[index];
-                    final count = widget.store.available(item);
-                    return Card(
-                      margin: EdgeInsets.zero,
+          child: RefreshIndicator(
+            onRefresh: store.loadItems,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(18, 6, 18, 24),
+              children: [
+                if (store.isLoading && store.items.isEmpty)
+                  const SizedBox(height: 230, child: _ItemsLoadingView())
+                else if (store.errorMessage != null && store.items.isEmpty)
+                  SizedBox(height: 260, child: _ItemsErrorView(store: store))
+                else ...[
+                  if (store.errorMessage != null)
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          children: [
+                            const Text('물품을 새로 불러오지 못했습니다. 이전 정보가 표시됩니다.'),
+                            TextButton(
+                              onPressed: store.loadItems,
+                              child: const Text('다시 시도'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  if (visible.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(30),
+                      child: Center(
+                        child: Text(
+                          '검색 결과가 없습니다.',
+                          style: TextStyle(color: muted),
+                        ),
+                      ),
+                    ),
+                  for (final item in visible)
+                    Card(
+                      margin: const EdgeInsets.only(bottom: 12),
                       child: InkWell(
                         onTap: () => widget.openItem(item),
                         borderRadius: BorderRadius.circular(17),
                         child: Padding(
-                          padding: const EdgeInsets.all(10),
-                          child: Row(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              ProductVisual(item: item, width: 82, height: 76),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      item.name,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: ink,
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 15,
-                                      ),
+                              Row(
+                                children: [
+                                  ProductVisual(
+                                    item: item,
+                                    width: 64,
+                                    height: 60,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item.name,
+                                          style: const TextStyle(
+                                            color: ink,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 5),
+                                        Text(
+                                          item.category,
+                                          style: const TextStyle(
+                                            color: muted,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      item.subtitle,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: muted,
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                    Text(
-                                      '$count / ${item.total} ${item.unit}',
-                                      style: const TextStyle(
-                                        color: ink,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ],
+                                  ),
+                                  const Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: primaryBlue,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                '보관 장소 ${item.location}',
+                                style: const TextStyle(
+                                  color: muted,
+                                  fontSize: 12,
                                 ),
                               ),
-                              const SizedBox(width: 4),
-                              AvailabilityPill(available: count),
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  AvailabilityPill(
+                                    available: store.available(item),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    '대여 가능 ${store.available(item)} / ${item.total}${item.unit}',
+                                    style: const TextStyle(
+                                      color: ink,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ],
                           ),
                         ),
                       ),
-                    );
-                  },
-                ),
+                    ),
+                ],
+              ],
+            ),
+          ),
         ),
       ],
     );
@@ -1217,155 +987,178 @@ class _DetailScreenState extends State<DetailScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final count = widget.store.available(widget.item);
-    return Scaffold(
-      appBar: AppBar(title: const Text('물품 상세')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 26),
-        children: [
-          Center(
-            child: ProductVisual(
-              item: widget.item,
-              width: double.infinity,
-              height: 225,
-            ),
-          ),
-          const SizedBox(height: 17),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  widget.item.name,
-                  style: const TextStyle(
-                    color: ink,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              AvailabilityPill(available: count),
-            ],
-          ),
-          Text(
-            widget.item.subtitle,
-            style: const TextStyle(color: muted, fontSize: 13),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            widget.item.description,
-            style: const TextStyle(color: ink, fontSize: 13, height: 1.5),
-          ),
-          const SizedBox(height: 20),
-          Card(
-            margin: EdgeInsets.zero,
-            child: Padding(
-              padding: const EdgeInsets.all(17),
-              child: Column(
-                children: [
-                  InfoLine(
-                    icon: Icons.inventory_2_outlined,
-                    title: '전체 수량',
-                    value: '${widget.item.total} ${widget.item.unit}',
-                  ),
-                  const Divider(height: 21, color: line),
-                  InfoLine(
-                    icon: Icons.lock_open_outlined,
-                    title: '대여 가능 수량',
-                    value: '$count ${widget.item.unit}',
-                  ),
-                  const Divider(height: 21, color: line),
-                  InfoLine(
-                    icon: Icons.place_outlined,
-                    title: '위치',
-                    value: widget.item.location,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 13),
-          Card(
-            margin: EdgeInsets.zero,
-            child: Padding(
-              padding: const EdgeInsets.all(17),
-              child: Column(
-                children: [
-                  InfoLine(
-                    icon: Icons.calendar_today_outlined,
-                    title: '신청일',
-                    value: dateText(DateTime.now()),
-                  ),
-                  const Divider(height: 21, color: line),
-                  InkWell(
-                    onTap: _chooseDue,
-                    child: Row(
-                      children: [
-                        const Icon(Icons.event_outlined, color: ink, size: 20),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Text(
-                            '반납 예정일 (최대 14일)',
-                            style: TextStyle(color: muted, fontSize: 12),
-                          ),
-                        ),
-                        Text(
-                          dateText(due),
-                          style: const TextStyle(
-                            color: ink,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                        const Icon(
-                          Icons.chevron_right_rounded,
-                          color: primaryBlue,
-                          size: 18,
-                        ),
-                      ],
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: widget.store,
+    builder: (context, _) {
+      final item =
+          widget.store.items
+              .where((candidate) => candidate.id == widget.item.id)
+              .firstOrNull ??
+          widget.item;
+      final count = widget.store.available(item);
+      final pending = widget.store.myRequests.any(
+        (request) =>
+            request.item.id == item.id &&
+            request.status == RequestStatus.pending,
+      );
+      return Scaffold(
+        appBar: AppBar(title: const Text('물품 상세')),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(18, 14, 18, 28),
+          children: [
+            ProductVisual(item: item, width: double.infinity, height: 190),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    item.name,
+                    style: const TextStyle(
+                      color: ink,
+                      fontSize: 25,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                ],
+                ),
+                AvailabilityPill(available: count),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              item.description,
+              style: const TextStyle(color: muted, height: 1.6, fontSize: 13),
+            ),
+            const SizedBox(height: 20),
+            Card(
+              margin: EdgeInsets.zero,
+              child: Padding(
+                padding: const EdgeInsets.all(17),
+                child: Column(
+                  children: [
+                    InfoLine(
+                      icon: Icons.category_outlined,
+                      title: '카테고리',
+                      value: item.category,
+                    ),
+                    const Divider(height: 22, color: line),
+                    InfoLine(
+                      icon: Icons.inventory_2_outlined,
+                      title: '전체 수량',
+                      value: '${item.total} ${item.unit}',
+                    ),
+                    const Divider(height: 22, color: line),
+                    InfoLine(
+                      icon: Icons.lock_open_outlined,
+                      title: '대여 가능 수량',
+                      value: '$count ${item.unit}',
+                    ),
+                    const Divider(height: 22, color: line),
+                    InfoLine(
+                      icon: Icons.place_outlined,
+                      title: '보관 장소',
+                      value: item.location,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(18, 9, 18, 12),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(top: BorderSide(color: line)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              PrimaryAction(
-                label: count > 0 ? '대여 신청' : '현재 대여 불가',
-                onPressed: count > 0
-                    ? () {
-                        if (widget.store.requestRental(widget.item, due)) {
-                          Navigator.pop(context, true);
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                '재고·반납일·중복 신청을 확인해 주세요. 최대 대여 기간은 14일입니다.',
-                              ),
+            const SizedBox(height: 16),
+            Card(
+              margin: EdgeInsets.zero,
+              child: Padding(
+                padding: const EdgeInsets.all(17),
+                child: Column(
+                  children: [
+                    InfoLine(
+                      icon: Icons.calendar_today_outlined,
+                      title: '신청일',
+                      value: dateText(DateTime.now()),
+                    ),
+                    const Divider(height: 22, color: line),
+                    InkWell(
+                      onTap: _chooseDue,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 5),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '반납 예정일 (최대 14일)',
+                              style: TextStyle(color: muted, fontSize: 12),
                             ),
-                          );
-                        }
-                      }
-                    : null,
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.event_outlined,
+                                  color: primaryBlue,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    dateText(due),
+                                    style: const TextStyle(
+                                      color: ink,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: primaryBlue,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ],
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              '신청 후 관리자 승인이 완료되면 물품을 이용할 수 있습니다.',
+              style: TextStyle(color: muted, fontSize: 12, height: 1.5),
+            ),
+          ],
+        ),
+        bottomNavigationBar: SafeArea(
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(top: BorderSide(color: line)),
+            ),
+            child: PrimaryAction(
+              label: pending
+                  ? '승인 대기 중'
+                  : count > 0
+                  ? '대여 신청'
+                  : '현재 대여 불가',
+              onPressed: count > 0 && !pending
+                  ? () {
+                      if (widget.store.requestRental(item, due)) {
+                        Navigator.pop(context, true);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              '재고·반납일·중복 신청을 확인해 주세요. 최대 대여 기간은 14일입니다.',
+                            ),
+                          ),
+                        );
+                      }
+                    }
+                  : null,
+            ),
           ),
         ),
-      ),
-    );
-  }
+      );
+    },
+  );
 }
 
 class InfoLine extends StatelessWidget {
@@ -1403,17 +1196,24 @@ class InfoLine extends StatelessWidget {
 }
 
 class RentalsScreen extends StatelessWidget {
-  const RentalsScreen({super.key, required this.store});
+  const RentalsScreen({super.key, required this.store, this.initialIndex = 0});
   final ItemStore store;
+  final int initialIndex;
 
   @override
   Widget build(BuildContext context) => DefaultTabController(
+    initialIndex: initialIndex,
     length: 3,
     child: Column(
       children: [
         Material(
           color: Colors.white,
           child: TabBar(
+            labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+            labelStyle: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
             labelColor: primaryBlue,
             unselectedLabelColor: muted,
             indicatorColor: primaryBlue,
@@ -1535,6 +1335,8 @@ class _RequestCard extends StatelessWidget {
           children: [
             Row(
               children: [
+                ProductVisual(item: request.item, width: 48, height: 46),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     request.item.name,
@@ -1551,6 +1353,7 @@ class _RequestCard extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 10),
             Text(
               '신청일  ${dateText(request.requestedAt)}',
               style: const TextStyle(color: muted, fontSize: 12),
@@ -1625,16 +1428,22 @@ class _RentalCard extends StatelessWidget {
     final remaining = dateOnly(rental.due)
         .difference(dateOnly(DateTime.now()))
         .inDays;
+    final status = !rental.isActive
+        ? '반납 완료'
+        : rental.isReturnPending
+        ? '반납 확인 대기'
+        : '대여 중';
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                ProductVisual(item: rental.item, width: 72, height: 70),
-                const SizedBox(width: 10),
+                ProductVisual(item: rental.item, width: 56, height: 52),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1643,57 +1452,73 @@ class _RentalCard extends StatelessWidget {
                         rental.item.name,
                         style: const TextStyle(
                           color: ink,
+                          fontSize: 16,
                           fontWeight: FontWeight.w800,
-                          fontSize: 15,
                         ),
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 5),
                       Text(
-                        '대여일    ${dateText(rental.start)}',
-                        style: const TextStyle(color: muted, fontSize: 11),
-                      ),
-                      Text(
-                        '반납 예정일    ${dateText(rental.due)}',
-                        style: const TextStyle(color: muted, fontSize: 11),
+                        rental.item.location,
+                        style: const TextStyle(color: muted, fontSize: 12),
                       ),
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: rental.isActive
-                        ? const Color(0xFFE5F0FF)
-                        : const Color(0xFFF0F2F6),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    rental.isActive
-                        ? (rental.isReturnPending ? '반납 확인 대기' : '대여 중')
-                        : '반납 완료',
-                    style: TextStyle(
-                      color: rental.isActive ? primaryBlue : muted,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 10,
-                    ),
-                  ),
-                ),
               ],
             ),
-            if (rental.isActive && remaining <= 1) ...[
-              const SizedBox(height: 10),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: rental.isActive
+                    ? const Color(0xFFEEE9FF)
+                    : const Color(0xFFE7F4EE),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                status,
+                style: const TextStyle(
+                  color: primaryBlue,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '대여일  ${dateText(rental.start)}',
+              style: const TextStyle(color: muted, fontSize: 12),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              '반납 예정일  ${dateText(rental.due)}',
+              style: const TextStyle(
+                color: ink,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (rental.returnedAt != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 5),
+                child: Text(
+                  '반납 완료일  ${dateText(rental.returnedAt!)}',
+                  style: const TextStyle(color: muted, fontSize: 12),
+                ),
+              ),
+            if (rental.isActive &&
+                !rental.isReturnPending &&
+                remaining <= 1) ...[
+              const SizedBox(height: 12),
               _ReminderBanner(rental: rental),
             ],
-            if (onReturn != null) ...[
-              const SizedBox(height: 8),
+            if (rental.isActive && onReturn != null) ...[
+              const SizedBox(height: 14),
               Align(
                 alignment: Alignment.centerRight,
-                child: TextButton.icon(
+                child: FilledButton.tonalIcon(
                   onPressed: rental.isReturnPending ? null : onReturn,
-                  icon: const Icon(Icons.check_circle_outline, size: 17),
+                  icon: const Icon(Icons.assignment_return_outlined, size: 18),
                   label: Text(
                     rental.isReturnPending ? '관리자 반납 확인 대기' : '반납 요청',
                   ),
@@ -1757,7 +1582,12 @@ class AlertsScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(17),
       children: [
-        const SectionHeading(title: '알림'),
+        const Text('대여 상태와 반납 일정을 확인하세요.', style: TextStyle(color: muted)),
+        if (store.activeRentals.isEmpty && store.myRequests.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(30),
+            child: Center(child: Text('확인할 알림이 없습니다.')),
+          ),
         const SizedBox(height: 10),
         for (final rental in store.activeRentals)
           Padding(
@@ -1908,6 +1738,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.all(18),
     children: [
+      Card(
+        child: ListTile(
+          contentPadding: const EdgeInsets.all(16),
+          leading: const CircleAvatar(
+            backgroundColor: Color(0xFFEEE9FF),
+            child: Icon(Icons.person_outline_rounded, color: primaryBlue),
+          ),
+          title: Text(
+            widget.user.name,
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          subtitle: Text('학번 ${widget.user.studentNumber ?? '미등록'}'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () {
+            final account = widget.user;
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => ProfileScreen(user: account)),
+            );
+          },
+        ),
+      ),
+      const SizedBox(height: 14),
       Card(
         child: Column(
           children: [

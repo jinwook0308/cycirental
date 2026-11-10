@@ -17,16 +17,29 @@ class AdminDashboard extends StatelessWidget {
     required this.onRegister,
     required this.onNotice,
     required this.onAccounts,
+    required this.onViewAll,
     required this.onRecovery,
+    required this.onRecoveryRetry,
+    required this.recoveryCount,
+    required this.recoveryLoading,
+    required this.recoveryError,
+    required this.recoveryAvailable,
+    required this.onActive,
+    required this.onOverdue,
     required this.onApprove,
     required this.onReject,
     required this.onConfirmReturn,
   });
 
+  final int? recoveryCount;
+  final bool recoveryLoading;
+  final String? recoveryError;
+  final bool recoveryAvailable;
+  final VoidCallback onRecovery, onRecoveryRetry;
   final ItemStore store;
   final AppUser user;
   final VoidCallback onItems, onRequests, onReturns, onRegister;
-  final VoidCallback onNotice, onAccounts, onRecovery;
+  final VoidCallback onNotice, onAccounts, onViewAll, onActive, onOverdue;
   final ValueChanged<DemoRequest> onApprove, onReject;
   final ValueChanged<RentalRecord> onConfirmReturn;
 
@@ -49,6 +62,7 @@ class AdminDashboard extends StatelessWidget {
     ]..sort((a, b) => b.at.compareTo(a.at));
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
         Container(
@@ -137,7 +151,7 @@ class AdminDashboard extends StatelessWidget {
                 Icons.inventory_2_outlined,
                 const Color(0xFF07977A),
                 const Color(0xFFE1F3EF),
-                onReturns,
+                onActive,
                 constraints.maxWidth,
               ),
               _metric(
@@ -146,7 +160,7 @@ class AdminDashboard extends StatelessWidget {
                 Icons.warning_amber_rounded,
                 const Color(0xFFD34D6A),
                 const Color(0xFFFDEBF0),
-                onReturns,
+                onOverdue,
                 constraints.maxWidth,
               ),
             ],
@@ -155,9 +169,79 @@ class AdminDashboard extends StatelessWidget {
         const SizedBox(height: 22),
         Row(
           children: [
-            Expanded(child: _heading(context, '처리할 신청')),
-            TextButton(onPressed: onRequests, child: const Text('전체 보기 ›')),
+            Expanded(child: _heading(context, '처리할 요청')),
+            TextButton(onPressed: onViewAll, child: const Text('전체 보기 ›')),
           ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _requestShortcut(
+              '대여 신청',
+              '${store.pendingRequests.length}건',
+              Icons.fact_check_outlined,
+              onRequests,
+              key: const Key('admin-rental-summary'),
+            ),
+            const SizedBox(width: 8),
+            _requestShortcut(
+              '반납 요청',
+              '${returns.length}건',
+              Icons.assignment_return_outlined,
+              onReturns,
+              key: const Key('admin-return-summary'),
+            ),
+            const SizedBox(width: 8),
+            _requestShortcut(
+              '비밀번호\n초기화',
+              recoveryLoading
+                  ? '조회 중…'
+                  : recoveryError != null || recoveryCount == null
+                  ? '—'
+                  : recoveryCount! >= 100
+                  ? '100+건'
+                  : '${recoveryCount!}건',
+              Icons.lock_reset_rounded,
+              onRecovery,
+              key: const Key('admin-recovery-summary'),
+            ),
+          ],
+        ),
+        if (recoveryError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    '초기화 요청을 불러오지 못했습니다.',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+                TextButton(
+                  onPressed: onRecoveryRetry,
+                  child: const Text('다시 조회'),
+                ),
+              ],
+            ),
+          ),
+        if (!recoveryAvailable)
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: Text(
+              '비밀번호 초기화 요청은 관리자 로그인 후 확인할 수 있습니다.',
+              style: TextStyle(fontSize: 12),
+            ),
+          ),
+        const SizedBox(height: 16),
+        const Text(
+          '최근 대여·반납 요청',
+          style: TextStyle(
+            color: ink,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         const SizedBox(height: 8),
         Card(
@@ -167,7 +251,7 @@ class AdminDashboard extends StatelessWidget {
               if (recent.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(24),
-                  child: Text('현재 처리할 신청이 없습니다.'),
+                  child: Text('현재 처리할 대여·반납 요청이 없습니다.'),
                 ),
               for (var i = 0; i < math.min(recent.length, 5); i++) ...[
                 if (i > 0) const Divider(height: 1, indent: 16, endIndent: 16),
@@ -184,21 +268,17 @@ class AdminDashboard extends StatelessWidget {
           children: [
             _shortcut('물품 등록', Icons.add_box_outlined, onRegister),
             const SizedBox(width: 8),
-            _shortcut('물품 수정', Icons.edit_outlined, onItems),
+            _shortcut('물품 관리', Icons.edit_outlined, onItems),
             const SizedBox(width: 8),
             _shortcut('공지 작성', Icons.campaign_outlined, onNotice),
             const SizedBox(width: 8),
-            _shortcut('계정 관리', Icons.manage_accounts_outlined, onAccounts),
+            _shortcut(
+              '계정 지원',
+              Icons.manage_accounts_outlined,
+              onAccounts,
+              key: const Key('admin-account-support'),
+            ),
           ],
-        ),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton.icon(
-            key: const Key('admin-recovery-entry'),
-            onPressed: onRecovery,
-            icon: const Icon(Icons.lock_reset_rounded, size: 18),
-            label: const Text('비밀번호 초기화 요청'),
-          ),
         ),
         const SizedBox(height: 10),
         Card(
@@ -252,7 +332,7 @@ class AdminDashboard extends StatelessWidget {
                       child: Column(
                         children: [
                           _legend(
-                            '대여 중',
+                            '정상 대여 중',
                             active.length - overdue,
                             const Color(0xFF5275F2),
                           ),
@@ -272,6 +352,66 @@ class AdminDashboard extends StatelessWidget {
       ],
     );
   }
+
+  Widget _requestShortcut(
+    String title,
+    String count,
+    IconData icon,
+    VoidCallback onTap, {
+    Key? key,
+  }) => Expanded(
+    child: Material(
+      key: key,
+      color: const Color(0xFFF0EDFD),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+          child: Column(
+            children: [
+              Icon(icon, color: purple, size: 23),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 34,
+                child: Center(
+                  child: Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    style: const TextStyle(
+                      color: ink,
+                      fontSize: 12,
+                      height: 1.3,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              SizedBox(
+                height: 24,
+                child: Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      count,
+                      style: const TextStyle(
+                        color: purple,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 
   Widget _heading(BuildContext context, String text) => Text(
     text,
@@ -363,13 +503,18 @@ class AdminDashboard extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            TextButton(
+            TextButton.icon(
+              key: ValueKey(
+                'dashboard-approve-${request.studentId}-${request.item.id}',
+              ),
               onPressed: () => onApprove(request),
-              child: const Text('✓ 승인'),
+              icon: const Icon(Icons.check_rounded, size: 16),
+              label: const Text('승인'),
             ),
-            TextButton(
+            TextButton.icon(
               onPressed: () => onReject(request),
-              child: const Text('× 거절'),
+              icon: const Icon(Icons.close_rounded, size: 16),
+              label: const Text('거절'),
             ),
           ],
         ),
@@ -405,9 +550,10 @@ class AdminDashboard extends StatelessWidget {
         ),
         Align(
           alignment: Alignment.centerRight,
-          child: TextButton(
+          child: TextButton.icon(
             onPressed: () => onConfirmReturn(rental),
-            child: const Text('✓ 완료'),
+            icon: const Icon(Icons.check_rounded, size: 16),
+            label: const Text('완료'),
           ),
         ),
       ],
@@ -426,8 +572,14 @@ class AdminDashboard extends StatelessWidget {
     ),
   );
 
-  Widget _shortcut(String label, IconData icon, VoidCallback onTap) => Expanded(
+  Widget _shortcut(
+    String label,
+    IconData icon,
+    VoidCallback onTap, {
+    Key? key,
+  }) => Expanded(
     child: Material(
+      key: key,
       color: const Color(0xFFF1EFFF),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
