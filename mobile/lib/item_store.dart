@@ -6,6 +6,9 @@ import 'item_api.dart';
 import 'item_model.dart';
 import 'notice_store.dart';
 
+String studentDisplayLabel(String name, String studentNumber) =>
+    '$name · ${studentNumber.isEmpty ? '학번 미등록' : studentNumber}';
+
 enum RequestStatus { pending, approved, rejected, cancelled, expired }
 
 String requestStatusLabel(RequestStatus status) => switch (status) {
@@ -21,6 +24,7 @@ class DemoRequest {
     required this.item,
     required this.student,
     required this.studentId,
+    this.studentNumber = '',
     required this.due,
     DateTime? requestedAt,
   }) : requestedAt = dateOnly(requestedAt ?? DateTime.now());
@@ -28,6 +32,8 @@ class DemoRequest {
   RentalItem item;
   final String student;
   final String studentId;
+  final String studentNumber;
+  String get studentLabel => studentDisplayLabel(student, studentNumber);
   final DateTime due;
   RequestStatus status = RequestStatus.pending;
   String? rejectionReason;
@@ -41,11 +47,14 @@ class RentalRecord {
     this.returnedAt,
     this.student = '',
     this.studentId = '',
+    this.studentNumber = '',
   });
 
   RentalItem item;
   final String student;
   final String studentId;
+  final String studentNumber;
+  String get studentLabel => studentDisplayLabel(student, studentNumber);
   final DateTime start;
   final DateTime due;
   DateTime? returnedAt;
@@ -109,6 +118,7 @@ class ItemStore extends ChangeNotifier {
 
   String currentUserId = '';
   String currentUserName = '';
+  String currentUserStudentNumber = '';
   final List<DemoRequest> requests = [];
   final Map<int, RentalItem> _localItems = {};
   final Map<int, int> _stockAdjustments = {};
@@ -144,6 +154,7 @@ class ItemStore extends ChangeNotifier {
         due: request.due,
         student: request.student,
         studentId: request.studentId,
+        studentNumber: request.studentNumber,
       ),
     );
     notifyListeners();
@@ -314,6 +325,7 @@ class ItemStore extends ChangeNotifier {
         due: dateOnly(due),
         requestedAt: _now(),
         studentId: currentUserId,
+        studentNumber: currentUserStudentNumber,
         student: currentUserName,
       ),
     );

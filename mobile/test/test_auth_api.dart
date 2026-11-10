@@ -75,6 +75,7 @@ void seedTestRequests(ItemStore store) {
         item: item,
         student: '테스트 학생 ${index + 1}',
         studentId: 'fixture:${index + 1}',
+        studentNumber: '2026000${index + 1}',
         due: DateTime.now().add(const Duration(days: 3)),
       ),
     );

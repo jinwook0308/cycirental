@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'item_model.dart';
+import 'admin_dashboard.dart';
+import 'product_visual.dart';
 import 'item_store.dart';
 import 'app_user.dart';
 import 'notice_screens.dart';
@@ -14,9 +16,11 @@ class AdminScreen extends StatefulWidget {
     required this.user,
     this.authApi,
     this.accessToken,
+    this.onLogout,
   });
   final AuthApi? authApi;
   final String? accessToken;
+  final VoidCallback? onLogout;
   final AppUser user;
   final ItemStore store;
   @override
@@ -66,60 +70,119 @@ class _AdminScreenState extends State<AdminScreen> {
     );
   }
 
+  static const blue = Color(0xFF6654D9);
+
+  void openRecovery() {
+    final api = widget.authApi;
+    final token = widget.accessToken;
+    if (api == null || token == null) {
+      message('실제 관리자 계정으로 로그인해 주세요.');
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AdminRecoveryScreen(authApi: api, token: token),
+      ),
+    );
+  }
+
+  void openAccounts() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text('계정 관리')),
+          body: ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              Text(
+                '학생 계정 지원',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 8),
+              const Text('비밀번호 초기화 요청을 확인하고 본인 확인 후 처리합니다.'),
+              const SizedBox(height: 20),
+              Card(
+                child: ListTile(
+                  contentPadding: const EdgeInsets.all(16),
+                  leading: const Icon(Icons.lock_reset_rounded, color: blue),
+                  title: const Text('비밀번호 초기화 요청'),
+                  subtitle: const Text('대기 요청 확인 · 승인 · 거절'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: openRecovery,
+                ),
+              ),
+              const SizedBox(height: 28),
+              Text('로그인한 관리자', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.admin_panel_settings_outlined),
+                  title: Text(widget.user.name),
+                  subtitle: Text(
+                    '학번 · ${widget.user.studentNumber ?? widget.user.id}',
+                  ),
+                ),
+              ),
+              if (widget.onLogout != null)
+                TextButton.icon(
+                  onPressed: widget.onLogout,
+                  icon: const Icon(Icons.logout_rounded),
+                  label: const Text('로그아웃'),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: store,
+    animation: Listenable.merge([store, store.noticeStore]),
     builder: (context, _) => !widget.user.isAdmin
         ? Scaffold(
             appBar: AppBar(title: const Text('접근 제한')),
             body: const Center(child: Text('관리자 계정으로 로그인해 주세요.')),
           )
         : Scaffold(
+            backgroundColor: const Color(0xFFFAF9FF),
             appBar: AppBar(
-              title: const Text('관리자 모드'),
+              automaticallyImplyLeading: false,
+              title: Text(
+                ['CyciRental', '물품 관리', '대여 승인', '반납 관리', '공지 관리'][tab],
+                style: const TextStyle(fontFamily: 'Roboto'),
+              ),
               actions: [
-                IconButton(
-                  tooltip: '비밀번호 초기화 요청',
-                  icon: const Icon(Icons.lock_reset),
-                  onPressed: () {
-                    final api = widget.authApi;
-                    final token = widget.accessToken;
-                    if (api == null || token == null) {
-                      message('실제 관리자 계정으로 로그인해 주세요.');
-                      return;
-                    }
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            AdminRecoveryScreen(authApi: api, token: token),
-                      ),
-                    );
-                  },
-                ),
+                if (widget.onLogout != null)
+                  TextButton.icon(
+                    onPressed: widget.onLogout,
+                    icon: const Icon(Icons.logout_rounded, size: 18),
+                    label: const Text('로그아웃'),
+                  ),
+                const SizedBox(width: 8),
               ],
             ),
-            body: Column(
-              children: [
-                Expanded(
-                  child: switch (tab) {
-                    0 => dashboard(),
-                    1 => items(),
-                    2 => requests(),
-                    3 => returns(),
-                    _ => AdminNoticesPanel(
-                      store: store.noticeStore,
-                      user: widget.user,
-                    ),
-                  },
+            body: SafeArea(
+              child: switch (tab) {
+                0 => dashboard(),
+                1 => items(),
+                2 => requests(),
+                3 => returns(),
+                _ => AdminNoticesPanel(
+                  store: store.noticeStore,
+                  user: widget.user,
                 ),
-              ],
+              },
             ),
             bottomNavigationBar: NavigationBar(
+              indicatorColor: const Color(0xFFE6DFFF),
+              backgroundColor: Colors.white,
               selectedIndex: tab,
               onDestinationSelected: (value) => setState(() => tab = value),
               destinations: const [
                 NavigationDestination(
-                  icon: Icon(Icons.dashboard_outlined),
+                  icon: Icon(Icons.space_dashboard_outlined),
+                  selectedIcon: Icon(Icons.space_dashboard_rounded),
                   label: '현황',
                 ),
                 NavigationDestination(
@@ -150,52 +213,44 @@ class _AdminScreenState extends State<AdminScreen> {
           ),
   );
 
-  Widget dashboard() {
-    final overdue = store.allActiveRentals
-        .where(
-          (rental) => dateOnly(rental.due).isBefore(dateOnly(DateTime.now())),
-        )
-        .length;
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Text('학과 대여 관리', style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: 12),
-        metric(
-          '등록 물품',
-          '${store.items.length}종',
-          Icons.inventory_2_outlined,
-          1,
-        ),
-        metric(
-          '승인 대기',
-          '${store.pendingRequests.length}건',
-          Icons.pending_actions,
-          2,
-        ),
-        metric(
-          '대여 중',
-          '${store.allActiveRentals.length}건',
-          Icons.assignment_outlined,
-          3,
-        ),
-        metric('반납 지연', '$overdue건', Icons.warning_amber_rounded, 3),
-        const SizedBox(height: 16),
-        const Text('학생의 대여 신청을 승인하면 대여가 시작됩니다. 승인 전에는 물품을 이용할 수 없습니다.'),
-      ],
+  Widget dashboard() => AdminDashboard(
+    store: store,
+    user: widget.user,
+    onItems: () => setState(() => tab = 1),
+    onRequests: () => setState(() => tab = 2),
+    onReturns: () => setState(() => tab = 3),
+    onRegister: () => editItem(),
+    onNotice: () => Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            NoticeEditor(store: store.noticeStore, user: widget.user),
+      ),
+    ),
+    onAccounts: openAccounts,
+    onRecovery: openRecovery,
+    onApprove: (request) {
+      message(
+        store.approveRequest(request)
+            ? '대여를 승인했습니다.'
+            : '재고와 반납일을 확인해 주세요. 신청일 기준 최대 14일입니다.',
+      );
+    },
+    onReject: rejectRequest,
+    onConfirmReturn: confirmReturn,
+  );
+
+  Future<void> rejectRequest(DemoRequest request) async {
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (_) => const _RejectionDialog(),
+    );
+    if (!mounted || reason == null) return;
+    message(
+      store.rejectRequest(request, reason: reason)
+          ? '신청을 거절했습니다.'
+          : '신청 상태와 거절 사유를 확인해 주세요.',
     );
   }
-
-  Widget metric(String title, String value, IconData icon, int destination) =>
-      Card(
-        child: ListTile(
-          leading: Icon(icon),
-          title: Text(title),
-          subtitle: Text(value),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => setState(() => tab = destination),
-        ),
-      );
 
   Widget items() => ListView(
     padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
@@ -203,6 +258,8 @@ class _AdminScreenState extends State<AdminScreen> {
       for (final item in store.items)
         Card(
           child: ListTile(
+            leading: ProductVisual(item: item, width: 52, height: 48),
+            onTap: () => editItem(item),
             title: Text(item.name),
             subtitle: Text(
               '${item.category} · ${item.location}\n전체 ${item.total}${item.unit} / 대여 가능 ${store.available(item)}${item.unit}',
@@ -235,11 +292,20 @@ class _AdminScreenState extends State<AdminScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  request.item.name,
-                  style: Theme.of(context).textTheme.titleMedium,
+                Row(
+                  children: [
+                    ProductVisual(item: request.item, width: 52, height: 46),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        request.item.name,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                  ],
                 ),
-                Text('${request.student} · ${request.studentId}'),
+                const SizedBox(height: 10),
+                Text(request.studentLabel),
                 Text('반납 예정 ${dateText(request.due)}'),
                 if (request.rejectionReason != null)
                   Text('거절 사유: ${request.rejectionReason}'),
@@ -301,11 +367,20 @@ class _AdminScreenState extends State<AdminScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  rental.item.name,
-                  style: Theme.of(context).textTheme.titleMedium,
+                Row(
+                  children: [
+                    ProductVisual(item: rental.item, width: 52, height: 46),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        rental.item.name,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                  ],
                 ),
-                Text('${rental.student} · ${rental.studentId}'),
+                const SizedBox(height: 10),
+                Text(rental.studentLabel),
                 Text('반납 예정 ${dateText(rental.due)}'),
                 if (dateOnly(rental.due).isBefore(dateOnly(DateTime.now())))
                   Text(
@@ -334,7 +409,7 @@ class _AdminScreenState extends State<AdminScreen> {
           child: ListTile(
             title: Text(rental.item.name),
             subtitle: Text(
-              '${rental.student} · ${dateText(rental.returnedAt!)}',
+              '${rental.studentLabel} · ${dateText(rental.returnedAt!)}',
             ),
             trailing: const Icon(Icons.check_circle_outline),
           ),

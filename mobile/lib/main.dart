@@ -85,6 +85,7 @@ class _DeptRentalAppState extends State<DeptRentalApp>
           ? account.id
           : 'user:${account.userId}';
       store.currentUserName = account.name;
+      store.currentUserStudentNumber = account.studentNumber ?? '';
       store.refreshExpiredRequests();
       signedIn = true;
     });
@@ -99,6 +100,7 @@ class _DeptRentalAppState extends State<DeptRentalApp>
       accessToken = null;
       store.currentUserId = '';
       store.currentUserName = '';
+      store.currentUserStudentNumber = '';
     });
   }
 
@@ -131,8 +133,10 @@ class _DeptRentalAppState extends State<DeptRentalApp>
       useMaterial3: true,
       scaffoldBackgroundColor: page,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryBlue,
-        primary: primaryBlue,
+        seedColor: user?.isAdmin == true
+            ? const Color(0xFF6654D9)
+            : primaryBlue,
+        primary: user?.isAdmin == true ? const Color(0xFF6654D9) : primaryBlue,
       ),
       appBarTheme: const AppBarTheme(
         centerTitle: true,
@@ -194,6 +198,14 @@ class _DeptRentalAppState extends State<DeptRentalApp>
                     ),
                     session.accessToken,
                   ),
+                  onLogout: () => unawaited(_logout()),
+                )
+              : user!.isAdmin
+              ? AdminScreen(
+                  store: store,
+                  user: user!,
+                  authApi: authApi,
+                  accessToken: accessToken,
                   onLogout: () => unawaited(_logout()),
                 )
               : AppShell(
@@ -1949,30 +1961,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 MaterialPageRoute(builder: (_) => const UsageGuideScreen()),
               ),
             ),
-            if (widget.user.isAdmin)
-              ListTile(
-                leading: const Icon(
-                  Icons.admin_panel_settings_outlined,
-                  color: primaryBlue,
-                ),
-                title: const Text('관리자'),
-                subtitle: const Text('물품 · 대여 승인 · 반납 관리'),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () {
-                  if (!widget.user.isAdmin) return;
-                  widget.store.refreshExpiredRequests();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => AdminScreen(
-                        store: widget.store,
-                        user: widget.user,
-                        authApi: widget.authApi,
-                        accessToken: widget.accessToken,
-                      ),
-                    ),
-                  );
-                },
-              ),
             ListTile(
               leading: const Icon(Icons.logout_rounded, color: danger),
               title: const Text('로그아웃', style: TextStyle(color: danger)),

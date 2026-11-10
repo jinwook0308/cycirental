@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:dept_rental/auth_api.dart';
+import 'package:dept_rental/admin_screen.dart';
 import 'package:dept_rental/item_api.dart';
 import 'package:dept_rental/item_store.dart';
 import 'package:dept_rental/main.dart';
@@ -32,11 +33,12 @@ Map<String, Object> account(String token) => {
   'isAdmin': true,
 };
 Future<void> openRecovery(WidgetTester tester) async {
-  await tester.tap(find.text('설정'));
-  await tester.pumpAndSettle();
-  await tester.tap(find.text('관리자'));
-  await tester.pumpAndSettle();
-  await tester.tap(find.byTooltip('비밀번호 초기화 요청'));
+  await tester.scrollUntilVisible(
+    find.byKey(const Key('admin-recovery-entry')),
+    200,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.tap(find.byKey(const Key('admin-recovery-entry')));
 }
 
 void main() {
@@ -129,15 +131,14 @@ void main() {
     // Return from the loading screen without waiting for its API response.
     tester.state<NavigatorState>(find.byType(Navigator)).pop();
     await tester.pumpAndSettle();
-    tester.state<NavigatorState>(find.byType(Navigator)).pop();
-    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('로그아웃'));
     await tester.tap(find.text('로그아웃'));
     await tester.pumpAndSettle();
     await signIn(tester);
     pending.complete(json({'detail': 'Old session expired'}, 401));
     await tester.pumpAndSettle();
-    expect(find.byType(AppShell), findsOneWidget);
+    expect(find.byType(AdminScreen), findsOneWidget);
+    expect(find.byType(AppShell), findsNothing);
     expect(store.currentUserId, 'user:9');
     expect(tester.takeException(), isNull);
   });
@@ -155,8 +156,6 @@ void main() {
     addTearDown(store.dispose);
     await tester.pumpWidget(DeptRentalApp(store: store, authApi: api));
     await signIn(tester);
-    await tester.tap(find.text('설정'));
-    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('로그아웃'));
     await tester.tap(find.text('로그아웃'));
     await tester.pumpAndSettle();
