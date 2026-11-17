@@ -43,6 +43,7 @@ class StudentDashboard extends StatelessWidget {
     final pending = store.myRequests
         .where((r) => r.status == RequestStatus.pending)
         .length;
+    final countsKnown = store.rentalCountsKnown;
     final available = store.items
         .where((item) => store.available(item) > 0)
         .take(6)
@@ -54,7 +55,9 @@ class StudentDashboard extends StatelessWidget {
     ].take(3).toList();
 
     return RefreshIndicator(
-      onRefresh: store.loadItems,
+      onRefresh: () async {
+        await Future.wait([store.loadItems(), store.loadMyRentals()]);
+      },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
@@ -118,12 +121,13 @@ class StudentDashboard extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           _heading(context, '나의 대여 현황'),
+          RentalLoadNotice(store: store),
           const SizedBox(height: 12),
           Row(
             children: [
               _metric(
                 '승인 대기',
-                pending,
+                countsKnown ? pending : null,
                 Icons.pending_actions_outlined,
                 const Color(0xFF6654D9),
                 const Color(0xFFEEE9FF),
@@ -133,7 +137,7 @@ class StudentDashboard extends StatelessWidget {
               const SizedBox(width: 8),
               _metric(
                 '대여 중',
-                active.length,
+                countsKnown ? active.length : null,
                 Icons.inventory_2_outlined,
                 const Color(0xFF248B78),
                 const Color(0xFFE4F3EE),
@@ -143,7 +147,7 @@ class StudentDashboard extends StatelessWidget {
               const SizedBox(width: 8),
               _metric(
                 '반납 임박',
-                dueSoon,
+                countsKnown ? dueSoon : null,
                 Icons.event_available_outlined,
                 const Color(0xFFB56B35),
                 const Color(0xFFFFEEDD),
@@ -183,7 +187,9 @@ class StudentDashboard extends StatelessWidget {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              active.isEmpty
+                              !countsKnown
+                                  ? '대여 내역을 불러온 뒤 반납 일정을 확인할 수 있습니다.'
+                                  : active.isEmpty
                                   ? '대여 중인 물품이 없습니다.\n필요한 물품을 찾아보세요.'
                                   : '반납 요청이 접수됐습니다.\n관리자 확인을 기다려 주세요.',
                               style: const TextStyle(height: 1.6, fontSize: 13),
@@ -430,7 +436,7 @@ class StudentDashboard extends StatelessWidget {
 
   Widget _metric(
     String label,
-    int count,
+    int? count,
     IconData icon,
     Color color,
     Color background,
@@ -462,7 +468,7 @@ class StudentDashboard extends StatelessWidget {
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  '$count건',
+                  count == null ? '—' : '$count건',
                   style: TextStyle(
                     color: color,
                     fontSize: 23,
@@ -476,4 +482,33 @@ class StudentDashboard extends StatelessWidget {
       ),
     ),
   );
+}
+
+class RentalLoadNotice extends StatelessWidget {
+  const RentalLoadNotice({super.key, required this.store});
+
+  final ItemStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    final error = store.rentalLoadError;
+    if (error != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Row(
+          children: [
+            Expanded(child: Text(error)),
+            TextButton(
+              onPressed: store.loadMyRentals,
+              child: const Text('다시 시도'),
+            ),
+          ],
+        ),
+      );
+    }
+    if (store.loadingRentals) {
+      return const LinearProgressIndicator(semanticsLabel: '대여 내역 조회 중');
+    }
+    return const SizedBox.shrink();
+  }
 }

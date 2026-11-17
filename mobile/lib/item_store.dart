@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 
+import 'auth_api.dart';
 import 'item_api.dart';
 import 'item_model.dart';
 import 'notice_store.dart';
+import 'rental_response.dart';
 
 String studentDisplayLabel(String name, String studentNumber) =>
     '$name · ${studentNumber.isEmpty ? '학번 미등록' : studentNumber}';
@@ -25,10 +28,12 @@ class DemoRequest {
     required this.student,
     required this.studentId,
     this.studentNumber = '',
+    this.serverId,
     required this.due,
     DateTime? requestedAt,
   }) : requestedAt = requestedAt ?? DateTime.now();
   final DateTime requestedAt;
+  final int? serverId;
   RentalItem item;
   final String student;
   final String studentId;
@@ -48,6 +53,8 @@ class RentalRecord {
     this.student = '',
     this.studentId = '',
     this.studentNumber = '',
+    this.serverManaged = false,
+    this.serverReturnPending = false,
   });
 
   RentalItem item;
@@ -59,7 +66,10 @@ class RentalRecord {
   final DateTime due;
   DateTime? returnedAt;
   DateTime? returnRequestedAt;
-  bool get isReturnPending => isActive && returnRequestedAt != null;
+  final bool serverManaged;
+  final bool serverReturnPending;
+  bool get isReturnPending =>
+      isActive && (returnRequestedAt != null || serverReturnPending);
 
   bool get isActive => returnedAt == null;
 }
@@ -87,6 +97,7 @@ String dateText(DateTime date) =>
 class ItemStore extends ChangeNotifier {
   ItemStore({
     ItemApi? api,
+    this._rentalApi,
     List<RentalItem>? initialItems,
     DateTime Function()? now,
   }) : _api = api ?? (initialItems == null ? ItemApi() : null),
@@ -113,6 +124,149 @@ class ItemStore extends ChangeNotifier {
   }
 
   final ItemApi? _api;
+  final AuthApi? _rentalApi;
+  final _serverRentals = <int, RentalResponse>{};
+  String? _rentalToken;
+  int _rentalRevision = 0;
+  bool _disposed = false;
+  bool loadingRentals = false;
+  bool rentalActionPending = false;
+  String? rentalLoadError;
+  bool _hasRentalSnapshot = false;
+
+  bool get usesServerRentals => _rentalToken != null;
+  bool get rentalCountsKnown => !usesServerRentals || _hasRentalSnapshot;
+
+  void setRentalSession(String? token) {
+    if (_rentalApi == null) return;
+    _rentalRevision++;
+    _rentalToken = token;
+    _serverRentals.clear();
+    loadingRentals = false;
+    rentalActionPending = false;
+    rentalLoadError = null;
+    _hasRentalSnapshot = false;
+    if (token != null) unawaited(loadMyRentals());
+  }
+
+  bool _isCurrentRentalOperation(int revision) =>
+      !_disposed && revision == _rentalRevision;
+
+  Future<void> loadMyRentals() async {
+    final token = _rentalToken;
+    if (token == null || _disposed || loadingRentals || rentalActionPending) {
+      return;
+    }
+    final revision = _rentalRevision;
+    loadingRentals = true;
+    rentalLoadError = null;
+    notifyListeners();
+    try {
+      final rows = await _rentalApi!.myRentals(token);
+      if (!_isCurrentRentalOperation(revision)) return;
+      _serverRentals
+        ..clear()
+        ..addEntries(rows.map((row) => MapEntry(row.id, row)));
+      _hasRentalSnapshot = true;
+    } on AuthApiException catch (error) {
+      if (_isCurrentRentalOperation(revision)) rentalLoadError = error.message;
+    } finally {
+      if (_isCurrentRentalOperation(revision)) {
+        loadingRentals = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<bool> submitRental(RentalItem item, DateTime due) {
+    if (_rentalApi == null) return Future.value(requestRental(item, due));
+    if (item.id <= 0 || !isValidReturnDate(due, now: _now())) {
+      return Future.value(false);
+    }
+    return _changeRental(
+      (token) => _rentalApi.applyRental(token, item.id, due),
+    );
+  }
+
+  Future<bool> submitCancellation(DemoRequest request) {
+    if (_rentalApi == null) return Future.value(cancelRequest(request));
+    final id = request.serverId;
+    if (id == null ||
+        _serverRentals[id]?.status != ServerRentalStatus.pending) {
+      return Future.value(false);
+    }
+    return _changeRental((token) => _rentalApi.cancelRental(token, id));
+  }
+
+  Future<bool> _changeRental(
+    Future<RentalResponse> Function(String token) submit,
+  ) async {
+    final token = _rentalToken;
+    if (token == null || _disposed || rentalActionPending) return false;
+    // A GET started before the write may return older data.
+    final revision = ++_rentalRevision;
+    loadingRentals = false;
+    rentalActionPending = true;
+    notifyListeners();
+    try {
+      final rental = await submit(token);
+      if (!_isCurrentRentalOperation(revision)) return false;
+      _serverRentals[rental.id] = rental;
+      return true;
+    } finally {
+      if (_isCurrentRentalOperation(revision)) {
+        rentalActionPending = false;
+        notifyListeners();
+        unawaited(loadMyRentals());
+      }
+    }
+  }
+
+  List<RentalResponse> get _orderedServerRentals =>
+      _serverRentals.values.toList()..sort((a, b) => b.id.compareTo(a.id));
+
+  RentalItem _itemForRental(RentalResponse rental) =>
+      _items.where((item) => item.id == rental.itemId).firstOrNull ??
+      RentalItem(
+        id: rental.itemId,
+        name: rental.itemName,
+        category: '',
+        location: '',
+        total: 0,
+        initialAvailable: 0,
+        kind: ProductKind.desktop,
+      );
+
+  DemoRequest _serverRequest(RentalResponse row) =>
+      DemoRequest(
+          item: _itemForRental(row),
+          student: currentUserName,
+          studentId: currentUserId,
+          studentNumber: currentUserStudentNumber,
+          due: row.dueAt,
+          requestedAt: row.rentedAt,
+          serverId: row.id,
+        )
+        ..status = switch (row.status) {
+          ServerRentalStatus.pending => RequestStatus.pending,
+          ServerRentalStatus.rejected => RequestStatus.rejected,
+          ServerRentalStatus.cancelled => RequestStatus.cancelled,
+          ServerRentalStatus.expired => RequestStatus.expired,
+          _ => RequestStatus.approved,
+        };
+
+  RentalRecord _serverRecord(RentalResponse row) => RentalRecord(
+    item: _itemForRental(row),
+    start: row.rentedAt,
+    due: row.dueAt,
+    returnedAt: row.returnedAt,
+    student: currentUserName,
+    studentId: currentUserId,
+    studentNumber: currentUserStudentNumber,
+    serverManaged: true,
+    serverReturnPending: row.status == ServerRentalStatus.returnRequested,
+  );
+
   final List<RentalItem> _items;
   final List<RentalRecord> rentals = [];
 
@@ -250,17 +404,37 @@ class ItemStore extends ChangeNotifier {
 
   UnmodifiableListView<RentalItem> get items => UnmodifiableListView(_items);
 
-  List<RentalRecord> get activeRentals => rentals
-      .where((rental) => rental.isActive && rental.studentId == currentUserId)
-      .toList(growable: false);
+  List<RentalRecord> get activeRentals => usesServerRentals
+      ? _orderedServerRentals
+            .where(
+              (row) =>
+                  row.status == ServerRentalStatus.rented ||
+                  row.status == ServerRentalStatus.returnRequested,
+            )
+            .map(_serverRecord)
+            .toList(growable: false)
+      : rentals
+            .where(
+              (rental) => rental.isActive && rental.studentId == currentUserId,
+            )
+            .toList(growable: false);
 
-  List<RentalRecord> get history => rentals
-      .where((rental) => !rental.isActive && rental.studentId == currentUserId)
-      .toList(growable: false);
+  List<RentalRecord> get history => usesServerRentals
+      ? _orderedServerRentals
+            .where((row) => row.status == ServerRentalStatus.returned)
+            .map(_serverRecord)
+            .toList(growable: false)
+      : rentals
+            .where(
+              (rental) => !rental.isActive && rental.studentId == currentUserId,
+            )
+            .toList(growable: false);
 
-  List<DemoRequest> get myRequests => requests
-      .where((request) => request.studentId == currentUserId)
-      .toList(growable: false);
+  List<DemoRequest> get myRequests => usesServerRentals
+      ? _orderedServerRentals.map(_serverRequest).toList(growable: false)
+      : requests
+            .where((request) => request.studentId == currentUserId)
+            .toList(growable: false);
 
   List<DemoRequest> get myUnapprovedRequests => myRequests
       .where((request) => request.status != RequestStatus.approved)
@@ -281,12 +455,13 @@ class ItemStore extends ChangeNotifier {
         ..addAll(merged.values);
       _updateReferences();
     } catch (_) {
+      if (_disposed) return;
       errorMessage =
           '백엔드와 연결할 수 없습니다. '
           '주소와 실행 상태를 확인한 뒤 다시 시도해 주세요.';
     } finally {
       isLoading = false;
-      notifyListeners();
+      if (!_disposed) notifyListeners();
     }
   }
 
@@ -359,6 +534,7 @@ class ItemStore extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     noticeStore.removeListener(notifyListeners);
     noticeStore.dispose();
     _api?.close();
