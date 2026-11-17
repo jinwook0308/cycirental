@@ -53,10 +53,10 @@ class _DeptRentalAppState extends State<DeptRentalApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    ownsStore = widget.store == null;
-    store = widget.store ?? ItemStore();
     ownsAuthApi = widget.authApi == null;
     authApi = widget.authApi ?? AuthApi();
+    ownsStore = widget.store == null;
+    store = widget.store ?? ItemStore(rentalApi: authApi);
     _sessionExpirySubscription = authApi.expiredSessions.listen((token) {
       // A late response from an earlier login must not log out a new session.
       if (mounted && signedIn && token == accessToken) _clearSession();
@@ -87,6 +87,9 @@ class _DeptRentalAppState extends State<DeptRentalApp>
           : 'user:${account.userId}';
       store.currentUserName = account.name;
       store.currentUserStudentNumber = account.studentNumber ?? '';
+      store.setRentalSession(
+        account.isAdmin || account.mustChangePassword ? null : token,
+      );
       store.refreshExpiredRequests();
       signedIn = true;
     });
@@ -102,6 +105,7 @@ class _DeptRentalAppState extends State<DeptRentalApp>
       store.currentUserId = '';
       store.currentUserName = '';
       store.currentUserStudentNumber = '';
+      store.setRentalSession(null);
     });
   }
 
@@ -119,7 +123,10 @@ class _DeptRentalAppState extends State<DeptRentalApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) store.refreshExpiredRequests();
+    if (state == AppLifecycleState.resumed) {
+      store.refreshExpiredRequests();
+      unawaited(store.loadMyRentals());
+    }
   }
 
   @override
@@ -471,14 +478,18 @@ class _AppShellState extends State<AppShell> {
   int rentalTab = 0;
   int rentalRevision = 0;
 
-  void openRentals([int initialTab = 0]) => setState(() {
-    tab = 2;
-    rentalTab = initialTab;
-    rentalRevision++;
-  });
+  void openRentals([int initialTab = 0]) {
+    setState(() {
+      tab = 2;
+      rentalTab = initialTab;
+      rentalRevision++;
+    });
+    unawaited(widget.store.loadMyRentals());
+  }
 
   void openAlerts() {
     final store = widget.store;
+    unawaited(store.loadMyRentals());
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => Scaffold(
@@ -515,6 +526,14 @@ class _AppShellState extends State<AppShell> {
           style: const TextStyle(fontFamily: 'Roboto'),
         ),
         actions: [
+          if (tab == 2 && widget.store.usesServerRentals)
+            IconButton(
+              tooltip: '대여 내역 새로고침',
+              onPressed: widget.store.loadingRentals
+                  ? null
+                  : widget.store.loadMyRentals,
+              icon: const Icon(Icons.refresh),
+            ),
           IconButton(
             tooltip: '알림 보기',
             onPressed: openAlerts,
@@ -970,6 +989,22 @@ class DetailScreen extends StatefulWidget {
 class _DetailScreenState extends State<DetailScreen> {
   late DateTime due = dateOnly(DateTime.now()).add(const Duration(days: 3));
 
+  Future<void> _apply(RentalItem item) async {
+    var error = '재고·반납일·중복 신청을 확인해 주세요. 최대 대여 기간은 14일입니다.';
+    try {
+      if (await widget.store.submitRental(item, due)) {
+        if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+          Navigator.pop(context, true);
+        }
+        return;
+      }
+    } on AuthApiException catch (failure) {
+      error = failure.message;
+    }
+    if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+  }
+
   Future<void> _chooseDue() async {
     final today = dateOnly(DateTime.now());
     final first = today.add(const Duration(days: 1));
@@ -996,6 +1031,9 @@ class _DetailScreenState extends State<DetailScreen> {
               .firstOrNull ??
           widget.item;
       final count = widget.store.available(item);
+      final submitting = widget.store.rentalActionPending;
+      final canApply =
+          count > 0 && (!widget.store.usesServerRentals || item.id > 0);
       final pending = widget.store.myRequests.any(
         (request) =>
             request.item.id == item.id &&
@@ -1076,7 +1114,7 @@ class _DetailScreenState extends State<DetailScreen> {
                     ),
                     const Divider(height: 22, color: line),
                     InkWell(
-                      onTap: _chooseDue,
+                      onTap: submitting ? null : _chooseDue,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 5),
                         child: Column(
@@ -1133,25 +1171,15 @@ class _DetailScreenState extends State<DetailScreen> {
               border: Border(top: BorderSide(color: line)),
             ),
             child: PrimaryAction(
-              label: pending
+              label: submitting
+                  ? '처리 중…'
+                  : pending
                   ? '승인 대기 중'
-                  : count > 0
+                  : canApply
                   ? '대여 신청'
                   : '현재 대여 불가',
-              onPressed: count > 0 && !pending
-                  ? () {
-                      if (widget.store.requestRental(item, due)) {
-                        Navigator.pop(context, true);
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              '재고·반납일·중복 신청을 확인해 주세요. 최대 대여 기간은 14일입니다.',
-                            ),
-                          ),
-                        );
-                      }
-                    }
+              onPressed: canApply && !pending && !submitting
+                  ? () => _apply(item)
                   : null,
             ),
           ),
@@ -1200,6 +1228,43 @@ class RentalsScreen extends StatelessWidget {
   final ItemStore store;
   final int initialIndex;
 
+  String _tabLabel(String label, int count) =>
+      store.rentalCountsKnown ? '$label ($count)' : label;
+
+  Future<void> _cancel(BuildContext context, DemoRequest request) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('신청 취소'),
+        content: Text('${request.item.name} 신청을 취소하시겠어요?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('닫기'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('신청 취소'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    try {
+      final success = await store.submitCancellation(request);
+      if (!context.mounted) return;
+      if (!success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('이미 처리된 신청입니다. 내역을 확인해 주세요.')),
+        );
+      }
+    } on AuthApiException catch (failure) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(failure.message)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) => DefaultTabController(
     initialIndex: initialIndex,
@@ -1219,53 +1284,39 @@ class RentalsScreen extends StatelessWidget {
             indicatorColor: primaryBlue,
             indicatorSize: TabBarIndicatorSize.tab,
             tabs: [
-              Tab(text: '신청 내역 (${store.myUnapprovedRequests.length})'),
-              Tab(text: '대여 중 (${store.activeRentals.length})'),
-              Tab(text: '대여 내역 (${store.history.length})'),
+              Tab(text: _tabLabel('신청 내역', store.myUnapprovedRequests.length)),
+              Tab(text: _tabLabel('대여 중', store.activeRentals.length)),
+              Tab(text: _tabLabel('대여 내역', store.history.length)),
             ],
           ),
         ),
+        RentalLoadNotice(store: store),
         Expanded(
           child: TabBarView(
             children: [
               store.myUnapprovedRequests.isEmpty
-                  ? const _EmptyPanel(message: '신청 내역이 없습니다.')
+                  ? store.rentalCountsKnown
+                        ? const _EmptyPanel(message: '신청 내역이 없습니다.')
+                        : const SizedBox.shrink()
                   : ListView.separated(
                       padding: const EdgeInsets.all(17),
                       itemCount: store.myUnapprovedRequests.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 9),
-                      itemBuilder: (context, index) => _RequestCard(
-                        request: store.myUnapprovedRequests[index],
-                        onCancel: () async {
-                          final request = store.myUnapprovedRequests[index];
-                          final confirmed = await showDialog<bool>(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('신청 취소'),
-                              content: Text(
-                                '${request.item.name} 신청을 취소하시겠어요?',
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.pop(context, false),
-                                  child: const Text('닫기'),
-                                ),
-                                FilledButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  child: const Text('신청 취소'),
-                                ),
-                              ],
-                            ),
-                          );
-                          if (confirmed == true) store.cancelRequest(request);
-                        },
-                      ),
+                      itemBuilder: (_, index) {
+                        final request = store.myUnapprovedRequests[index];
+                        return _RequestCard(
+                          request: request,
+                          cancelPending: store.rentalActionPending,
+                          onCancel: () => _cancel(context, request),
+                        );
+                      },
                     ),
               store.activeRentals.isEmpty
-                  ? const _EmptyPanel(
-                      message: '대여 중인 물품이 없습니다.\n물품 목록에서 신청해 보세요.',
-                    )
+                  ? store.rentalCountsKnown
+                        ? const _EmptyPanel(
+                            message: '대여 중인 물품이 없습니다.\n물품 목록에서 신청해 보세요.',
+                          )
+                        : const SizedBox.shrink()
                   : ListView.separated(
                       padding: const EdgeInsets.all(17),
                       itemCount: store.activeRentals.length,
@@ -1274,35 +1325,41 @@ class RentalsScreen extends StatelessWidget {
                         final rental = store.activeRentals[index];
                         return _RentalCard(
                           rental: rental,
-                          onReturn: () async {
-                            final confirm = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('반납 요청'),
-                                content: Text(
-                                  '${rental.item.name}의 반납을 요청하시겠어요? 관리자 확인 후 반납이 완료됩니다.',
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, false),
-                                    child: const Text('취소'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, true),
-                                    child: const Text('반납 요청'),
-                                  ),
-                                ],
-                              ),
-                            );
-                            if (confirm == true) store.requestReturn(rental);
-                          },
+                          onReturn: rental.serverManaged
+                              ? null
+                              : () async {
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('반납 요청'),
+                                      content: Text(
+                                        '${rental.item.name}의 반납을 요청하시겠어요? 관리자 확인 후 반납이 완료됩니다.',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, false),
+                                          child: const Text('취소'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, true),
+                                          child: const Text('반납 요청'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirm == true) {
+                                    store.requestReturn(rental);
+                                  }
+                                },
                         );
                       },
                     ),
               store.history.isEmpty
-                  ? const _EmptyPanel(message: '완료된 대여 내역이 없습니다.')
+                  ? store.rentalCountsKnown
+                        ? const _EmptyPanel(message: '완료된 대여 내역이 없습니다.')
+                        : const SizedBox.shrink()
                   : ListView.separated(
                       padding: const EdgeInsets.all(17),
                       itemCount: store.history.length,
@@ -1319,9 +1376,14 @@ class RentalsScreen extends StatelessWidget {
 }
 
 class _RequestCard extends StatelessWidget {
-  const _RequestCard({required this.request, this.onCancel});
+  const _RequestCard({
+    required this.request,
+    this.onCancel,
+    this.cancelPending = false,
+  });
   final DemoRequest request;
   final VoidCallback? onCancel;
+  final bool cancelPending;
 
   @override
   Widget build(BuildContext context) {
@@ -1382,7 +1444,7 @@ class _RequestCard extends StatelessWidget {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: onCancel,
+                  onPressed: cancelPending ? null : onCancel,
                   child: const Text('신청 취소'),
                 ),
               ),
@@ -1583,7 +1645,10 @@ class AlertsScreen extends StatelessWidget {
       padding: const EdgeInsets.all(17),
       children: [
         const Text('대여 상태와 반납 일정을 확인하세요.', style: TextStyle(color: muted)),
-        if (store.activeRentals.isEmpty && store.myRequests.isEmpty)
+        RentalLoadNotice(store: store),
+        if (store.rentalCountsKnown &&
+            store.activeRentals.isEmpty &&
+            store.myRequests.isEmpty)
           const Padding(
             padding: EdgeInsets.all(30),
             child: Center(child: Text('확인할 알림이 없습니다.')),
